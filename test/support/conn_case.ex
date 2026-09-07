@@ -49,7 +49,6 @@ defmodule LogflareWeb.ConnCase do
       import Phoenix.ConnTest, except: unquote(@conn_test_request_macros)
       import Phoenix.LiveViewTest
       import Phoenix.VerifiedRoutes
-      import PhoenixTest
       import Plug.Conn
       import unquote(__MODULE__)
 

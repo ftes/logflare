@@ -41,15 +41,14 @@ if config_env() == :test and Env.get_boolean("E2E") do
   # at runtime.
   config :logflare, LogflareWeb.Endpoint, server: true
 
-  config :phoenix_test,
+  config :cerberus,
     playwright: [
-      browser: :chromium,
-      executable_path: System.get_env("PLAYWRIGHT_CHROMIUM_PATH", ""),
-      trace: Env.get_boolean("PW_TRACE"),
-      screenshot: Env.get_boolean("PW_SCREENSHOT"),
-      js_logger: if(Env.get_boolean("PW_JS_LOGGER"), do: :default, else: false),
+      enabled: true,
+      engine: :chromium,
+      executable: Path.expand("../assets/node_modules/playwright/cli.js", __DIR__),
       timeout: :timer.seconds(40),
-      browser_launch_timeout: 10_000
+      launch_options: [headless: true],
+      artifact_dir: System.get_env("CERBERUS_ARTIFACT_DIR")
     ]
 end
 

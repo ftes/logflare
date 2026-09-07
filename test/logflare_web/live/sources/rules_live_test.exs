@@ -1,5 +1,5 @@
 defmodule LogflareWeb.Sources.RulesLiveTest do
-  use LogflareWeb.ConnCase, async: true
+  use LogflareWeb.CerberusConnCase, async: true
 
   alias Logflare.Rules
 
@@ -12,8 +12,9 @@ defmodule LogflareWeb.Sources.RulesLiveTest do
     source = insert(:source, user: build(:user))
 
     conn
+    |> start_app_session()
     |> visit(~p"/sources/#{source}/rules")
-    |> assert_path(~p"/auth/login")
+    |> expect(Expect.url(~p"/auth/login"))
   end
 
   test "returns 403 for source that doesn't belong to user", %{conn: conn} do
@@ -72,11 +73,14 @@ defmodule LogflareWeb.Sources.RulesLiveTest do
 
     test "displays empty rules list initially", %{conn: conn, source: source} do
       conn
+      |> start_app_session()
       |> visit(~p"/sources/#{source}/rules")
-      |> assert_has(".subhead h5 a", text: source.name)
-      |> assert_has("a[href='/sources/#{source.id}']", text: source.name)
-      |> assert_has("h5", text: "Source Routing Rules")
-      |> assert_has("li.list-group-item", text: "No rules yet...")
+      |> expect(Expect.visible(by_text(by_css(".subhead h5 a"), source.name, [])))
+      |> expect(
+        Expect.visible(by_text(by_css("a[href='/sources/#{source.id}']"), source.name, []))
+      )
+      |> expect(Expect.visible(by_text(by_css("h5"), "Source Routing Rules", [])))
+      |> expect(Expect.visible(by_text(by_css("li.list-group-item"), "No rules yet...", [])))
     end
 
     test "displays rules after creating them", %{

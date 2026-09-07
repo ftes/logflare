@@ -1,6 +1,7 @@
 defmodule E2e.Features.LogsSearchTest do
-  use Logflare.FeatureCase, async: false
+  use Logflare.CerberusFeatureCase, async: false
 
+  alias Cerberus.Playwright.Handle
   alias Logflare.Backends
   alias Logflare.SingleTenant
   alias PlaywrightEx.Frame
@@ -55,23 +56,21 @@ defmodule E2e.Features.LogsSearchTest do
     end
 
     test "searches logs from the search page", %{
-      conn: conn,
       source: source,
       matching_message: matching_message,
       non_matching_message: non_matching_message
     } do
-      conn
-      |> visit(~p"/auth/login/single_tenant")
-      |> assert_path(~p"/dashboard")
+      logs = by_css("#logs-list-container")
+
+      start_logged_in_session()
       |> visit(
         ~p"/sources/#{source.id}/search?#{%{querystring: "event_message:#{matching_message}"}}"
       )
-      |> assert_has("#logs-list-container", text: matching_message)
-      |> refute_has("#logs-list-container", text: non_matching_message)
+      |> expect(Expect.visible(by_text(logs, matching_message, [])))
+      |> expect(Expect.count(by_text(logs, non_matching_message, []), 0))
     end
 
     test "loads the remaining previous page of search results", %{
-      conn: conn,
       source: source,
       user: user
     } do
@@ -85,93 +84,68 @@ defmodule E2e.Features.LogsSearchTest do
       assert {:ok, 105} = Backends.ingest_logs(log_events, source)
       assert :ok = TestUtils.wait_for_postgres_events(source, user, pagination_message, 105)
 
-      conn
-      |> visit(~p"/auth/login/single_tenant")
-      |> assert_path(~p"/dashboard")
+      start_logged_in_session()
       |> visit(
         ~p"/sources/#{source.id}/search?#{%{querystring: ~s|event_message:~\"^#{pagination_message}-\"|, tailing?: false}}"
       )
-      |> assert_has("#logs-list li[data-event-id]", count: 100)
-      |> click("#load-more-events-top")
-      |> assert_has("#logs-list li[data-event-id]", count: 105)
-      |> refute_has("#load-more-events-top")
+      |> expect(Expect.count(by_css("#logs-list li[data-event-id]"), 100))
+      |> click(by_css("#load-more-events-top"))
+      |> expect(Expect.count(by_css("#logs-list li[data-event-id]"), 105))
+      |> expect(Expect.disabled(by_css("#load-more-events-top")))
     end
 
-    test "shows a missing field error from the search page", %{conn: conn, source: source} do
-      conn
-      |> visit(~p"/auth/login/single_tenant")
-      |> assert_path(~p"/dashboard")
+    test "shows a missing field error from the search page", %{source: source} do
+      message = by_css(".message .alert p")
+
+      start_logged_in_session()
       |> visit(~p"/sources/#{source.id}/search?#{%{querystring: "s:nonexistent"}}")
-      |> wait_for_selector(".message .alert", state: "attached")
-      |> assert_has(".message .alert p", text: "nonexistent")
-      |> assert_has(".message .alert p", text: "does not exist")
+      |> expect(Expect.visible(by_text(message, "nonexistent", []), timeout: 10_000))
+      |> expect(Expect.visible(by_text(message, "does not exist", [])))
     end
 
-    test "cancelling the datepicker resumes tailing", %{
-      conn: conn,
-      source: source
-    } do
-      conn
-      |> visit(~p"/auth/login/single_tenant")
-      |> assert_path(~p"/dashboard")
+    test "cancelling the datepicker resumes tailing", %{source: source} do
+      pause = by_text(by_css(".live-pause"), "Pause", [])
+
+      start_logged_in_session()
       |> visit(~p"/sources/#{source.id}/search")
-      |> assert_has(".live-pause", text: "Pause")
-      |> click("#daterangepicker")
-      |> wait_for_selector(".daterangepicker", state: "attached")
+      |> expect(Expect.visible(pause))
+      |> click(by_css("#daterangepicker"))
+      |> expect(Expect.count(by_css(".daterangepicker"), 1, timeout: 10_000))
       |> click_date_range_cancel()
-      |> assert_has(".live-pause", text: "Pause")
+      |> expect(Expect.visible(pause))
     end
 
-    test "applying a preset date range updates the search query", %{
-      conn: conn,
-      source: source
-    } do
-      conn =
-        conn
-        |> visit(~p"/auth/login/single_tenant")
-        |> assert_path(~p"/dashboard")
+    test "applying a preset date range updates the search query", %{source: source} do
+      session =
+        start_logged_in_session()
         |> visit(~p"/sources/#{source.id}/search")
-        |> click("span", "DateTime")
+        |> click(by_text(by_css("span"), "DateTime", []))
         |> click_date_range_preset("Last 15 Minutes")
-        |> assert_has(".live-pause", text: "Live")
+        |> expect(Expect.visible(by_text(by_css(".live-pause"), "Live", [])))
 
-      querystring =
-        wait_for_editor_querystring(conn, "t:last@15")
+      querystring = wait_for_editor_querystring(session, "t:last@15")
 
       assert querystring =~ "t:last@15"
     end
 
-    test "changing chart period updates the search query", %{
-      conn: conn,
-      source: source
-    } do
-      conn =
-        conn
-        |> visit(~p"/auth/login/single_tenant")
-        |> assert_path(~p"/dashboard")
+    test "changing chart period updates the search query", %{source: source} do
+      session =
+        start_logged_in_session()
         |> visit(~p"/sources/#{source.id}/search")
-        |> wait_for_selector("#source-logs-search-list")
+        |> expect(Expect.visible(by_css("#source-logs-search-list")))
 
-      wait_for_editor_querystring(conn, "")
+      wait_for_editor_querystring(session, "")
 
-      conn
-      |> unwrap(fn %{frame_id: frame_id} ->
-        {:ok, _} =
-          PlaywrightEx.Frame.select_option(frame_id,
-            selector: "#search_chart_period",
-            options: [%{label: "hour"}],
-            timeout: 5_000
-          )
+      session
+      |> select_option(by_css("#search_chart_period"), %{label: "hour"})
+      |> then(fn session ->
+        querystring = wait_for_editor_querystring(session, "t::hour")
+        assert querystring =~ "c:group_by(t::hour)"
+        session
       end)
-
-      querystring =
-        wait_for_editor_querystring(conn, "t::hour")
-
-      assert querystring =~ "c:group_by(t::hour)"
     end
 
     test "clicking a rendered chart bar narrows the search datetime", %{
-      conn: conn,
       source: source,
       user: user,
       matching_message: matching_message
@@ -181,110 +155,101 @@ defmodule E2e.Features.LogsSearchTest do
 
       assert :ok = TestUtils.wait_for_postgres_events(source, user, matching_message, 1)
 
-      conn =
-        conn
-        |> visit(~p"/auth/login/single_tenant")
-        |> assert_path(~p"/dashboard")
+      session =
+        start_logged_in_session()
         |> visit(~p"/sources/#{source.id}/search")
-        |> wait_for_selector(bar_selector)
+        |> expect(Expect.visible(bar_selector |> by_css() |> first(), timeout: 10_000))
 
-      conn
-      |> unwrap(fn %{frame_id: frame_id} ->
-        {:ok, %{"x" => x, "y" => y}} =
-          Frame.evaluate(frame_id,
-            expression: """
-            ({ barSelector, chartSelector }) => {
-              const bar = document.querySelector(barSelector).getBoundingClientRect()
-              const chart = document.querySelector(chartSelector).getBoundingClientRect()
+      %{"x" => x, "y" => y} =
+        Cerberus.Playwright.evaluate(
+          session,
+          """
+          ({ barSelector, chartSelector }) => {
+            const bar = document.querySelector(barSelector).getBoundingClientRect()
+            const chart = document.querySelector(chartSelector).getBoundingClientRect()
 
-              return {
-                x: bar.left - chart.left + bar.width / 2,
-                y: bar.top - chart.top + bar.height / 2
-              }
+            return {
+              x: bar.left - chart.left + bar.width / 2,
+              y: bar.top - chart.top + bar.height / 2
             }
-            """,
-            is_function: true,
-            arg: %{barSelector: bar_selector, chartSelector: chart_selector},
-            timeout: 5_000
-          )
+          }
+          """,
+          is_function: true,
+          arg: %{barSelector: bar_selector, chartSelector: chart_selector},
+          timeout: 5_000
+        )
 
-        {:ok, _} =
-          Frame.click(frame_id,
-            selector: chart_selector,
-            position: %{x: x, y: y},
-            timeout: 5_000
-          )
-      end)
+      session =
+        unwrap(session, fn %Handle{} = handle ->
+          {:ok, _} =
+            Frame.click(handle.frame_id,
+              selector: chart_selector,
+              position: %{x: x, y: y},
+              connection: handle.connection,
+              timeout: 5_000
+            )
+        end)
 
-      querystring = wait_for_editor_querystring(conn, "..")
+      session =
+        expect(
+          session,
+          Expect.count(by_css(~s|#lql-editor-hook[data-querystring*=".."]|), 1, timeout: 10_000)
+        )
+
+      querystring =
+        Cerberus.Playwright.evaluate(
+          session,
+          ~S|document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""|,
+          timeout: 5_000
+        )
 
       assert querystring =~ ~r/t:\S+\.\.\S+/
     end
   end
 
-  def wait_for_selector(conn, selector, opts \\ []) do
-    opts = opts |> Keyword.merge(selector: selector, timeout: 10_000)
-
-    conn
-    |> unwrap(fn %{frame_id: frame_id} ->
-      Frame.wait_for_selector(frame_id, opts)
-    end)
+  defp start_logged_in_session do
+    start_browser_session()
+    |> visit(~p"/auth/login/single_tenant")
+    |> expect(Expect.url(~r|/dashboard\?t=\d+$|))
   end
 
-  defp click_date_range_preset(conn, preset) do
-    trigger_click_event(conn, ~s|.daterangepicker .ranges li[data-range-key="#{preset}"]|)
+  defp click_date_range_preset(session, preset) do
+    trigger_click_event(session, ~s|.daterangepicker .ranges li[data-range-key="#{preset}"]|)
   end
 
-  defp click_date_range_cancel(conn) do
-    trigger_click_event(conn, ".daterangepicker .cancelBtn")
+  defp click_date_range_cancel(session) do
+    trigger_click_event(session, ".daterangepicker .cancelBtn")
   end
 
-  defp trigger_click_event(conn, selector) do
-    conn
-    |> unwrap(fn %{frame_id: frame_id} ->
+  defp trigger_click_event(session, selector) do
+    unwrap(session, fn %Handle{} = handle ->
       {:ok, _event} =
-        Frame.dispatch_event(frame_id,
+        Frame.dispatch_event(handle.frame_id,
           selector: selector,
           type: "click",
           event_init: %{bubbles: true, cancelable: true},
+          connection: handle.connection,
           timeout: 5_000
         )
     end)
   end
 
-  defp wait_for_editor_querystring(conn, expected_fragment, timeout_ms \\ 10_000) do
-    ref = make_ref()
+  defp wait_for_editor_querystring(session, expected_fragment, timeout_ms \\ 10_000) do
+    selector =
+      if expected_fragment == "" do
+        ~s|#lql-editor-hook[data-querystring]:not([data-querystring=""])|
+      else
+        ~s|#lql-editor-hook[data-querystring*="#{expected_fragment}"]|
+      end
 
-    conn
-    |> unwrap(fn %{frame_id: frame_id} ->
-      {:ok, _} =
-        Frame.wait_for_function(frame_id,
-          expression: """
-          ({ expectedFragment }) => {
-            const querystring =
-              document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""
-
-            if (expectedFragment === "") return querystring !== ""
-
-            return querystring.includes(expectedFragment)
-          }
-          """,
-          is_function: true,
-          arg: %{expectedFragment: expected_fragment},
-          timeout: timeout_ms
-        )
-
-      {:ok, querystring} =
-        Frame.evaluate(
-          frame_id,
-          expression: ~S|document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""|,
-          timeout: 5_000
-        )
-
-      send(self(), {ref, querystring})
+    session
+    |> expect(Expect.count(by_css(selector), 1, timeout: timeout_ms))
+    |> then(fn session ->
+      Cerberus.Playwright.evaluate(
+        session,
+        ~S|document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""|,
+        timeout: 5_000
+      )
     end)
-
-    assert_receive {^ref, querystring}
-    querystring
   end
 end

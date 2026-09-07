@@ -1,5 +1,5 @@
 defmodule LogflareWeb.SourceControllerTest do
-  use LogflareWeb.ConnCase
+  use LogflareWeb.CerberusConnCase
 
   alias Logflare.Backends
   alias Logflare.Backends.SourceSup
@@ -43,18 +43,16 @@ defmodule LogflareWeb.SourceControllerTest do
       user: user,
       invited_team1: invited_team1
     } do
-      conn
-      |> login_user(user)
-      |> visit(~p"/dashboard?t=#{invited_team1.id}")
-      |> then(fn session ->
-        html = Floki.parse_document!(session.conn.resp_body)
+      html =
+        conn
+        |> login_user(user)
+        |> get(~p"/dashboard?t=#{invited_team1.id}")
+        |> html_response(200)
+        |> Floki.parse_document!()
 
-        links =
-          html
-          |> Floki.find("a[href*='?t=#{invited_team1.id}']")
-
-        assert Enum.find(links, fn elem -> Floki.text(elem) =~ "Dashboard" end)
-      end)
+      assert html
+             |> Floki.find("a[href*='?t=#{invited_team1.id}']")
+             |> Enum.any?(&(Floki.text(&1) =~ "Dashboard"))
     end
   end
 
@@ -77,23 +75,22 @@ defmodule LogflareWeb.SourceControllerTest do
 
     defp nav_and_assert_admin_link(conn, team_name, team_id) do
       conn
+      |> start_app_session()
       |> visit(~p"/")
       |> then(fn session ->
         try do
-          click_link(session, team_name)
+          click(
+            session,
+            by_css(~s|a[href^="/teams/switch?team_id=#{team_id}"]|)
+            |> filter(has_text: team_name)
+          )
         rescue
           _ -> session
         end
       end)
-      |> then(fn session ->
-        html = Floki.parse_document!(session.conn.resp_body)
-
-        links =
-          html
-          |> Floki.find("a[href*='?t=#{team_id}']")
-
-        assert Enum.find(links, fn elem -> Floki.text(elem) =~ "Admin" end)
-      end)
+      |> expect(
+        Expect.visible(by_css("a[href*='t=#{team_id}']") |> filter(has_text: "Admin") |> first())
+      )
     end
 
     test "viewing as invited team_user - no home team", %{
@@ -107,15 +104,28 @@ defmodule LogflareWeb.SourceControllerTest do
       |> nav_and_assert_admin_link(admin_team.name, admin_team.id)
     end
 
+    @tag :feature
     test "viewing as invited team_user - with home team", %{
       conn: conn,
-      user: user,
       team_user1: team_user,
       admin_team: admin_team
     } do
       conn
-      |> login_user(user, team_user)
-      |> nav_and_assert_admin_link(admin_team.name, admin_team.id)
+      |> start_browser_session(team_user.email)
+      |> visit(~p"/dashboard")
+      |> expect(Expect.url(~r|/dashboard(?:\?.*)?$|, timeout: 5_000))
+      |> click(by_css("#teamDropdown"))
+      |> click(
+        by_css(~s|a[href^="/teams/switch?team_id=#{admin_team.id}"]|)
+        |> filter(has_text: admin_team.name)
+      )
+      |> expect(
+        Expect.visible(
+          by_css("a[href*='t=#{admin_team.id}']")
+          |> filter(has_text: "Admin")
+          |> first()
+        )
+      )
     end
 
     test "viewing as admin user", %{
@@ -124,6 +134,37 @@ defmodule LogflareWeb.SourceControllerTest do
       admin_team: admin_team
     } do
       conn |> login_user(user) |> nav_and_assert_admin_link(admin_team.name, admin_team.id)
+    end
+
+    defp start_browser_session(conn, current_email) do
+      cookie_options = Plug.Session.COOKIE.init(signing_salt: "INPMyhPE")
+
+      session_cookie =
+        conn
+        |> Map.put(:secret_key_base, LogflareWeb.Endpoint.config(:secret_key_base))
+        |> Plug.Session.COOKIE.put(nil, %{"current_email" => current_email}, cookie_options)
+
+      storage_state = %{
+        cookies: [
+          %{
+            name: "_logflare_key",
+            value: session_cookie,
+            domain: "localhost",
+            path: "/",
+            expires: -1,
+            http_only: true,
+            secure: false,
+            same_site: "Lax"
+          }
+        ],
+        origins: []
+      }
+
+      start_session(:playwright,
+        base_url: LogflareWeb.Endpoint.url(),
+        browser_context: [storage_state: storage_state],
+        timeout: :timer.seconds(40)
+      )
     end
   end
 
@@ -139,10 +180,15 @@ defmodule LogflareWeb.SourceControllerTest do
 
     test "show source", %{conn: conn, source: source} do
       conn
+      |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> assert_has("h5 > a[href='#{~p"/sources/#{source}"}']", text: source.name)
-      |> assert_has("li > a", text: "Sign out", exact: true)
-      |> assert_has("button > span", text: "Search", exact: true)
+      |> expect(
+        Expect.visible(
+          by_text(by_css("h5 > a[href='#{~p"/sources/#{source}"}']"), source.name, [])
+        )
+      )
+      |> expect(Expect.visible(by_text(by_css("li > a"), "Sign out", exact: true)))
+      |> expect(Expect.visible(by_text(by_css("button > span"), "Search", exact: true)))
     end
 
     test "show source uses default search LQL as search input value", %{conn: conn, user: user} do
@@ -163,11 +209,18 @@ defmodule LogflareWeb.SourceControllerTest do
       Backends.ingest_logs([le], source)
 
       conn
+      |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> assert_has("li > a", text: "event body", exact: true)
-      |> assert_has("li mark.log-level-debug", text: "debug")
-      |> assert_has("pre > code",
-        text: Logflare.JSON.encode!(le.body["event_message"], pretty: true)
+      |> expect(Expect.visible(by_text(by_css("li > a"), "event body", exact: true)))
+      |> expect(Expect.visible(by_text(by_css("li mark.log-level-debug"), "debug", [])))
+      |> expect(
+        Expect.visible(
+          by_text(
+            by_css("pre > code"),
+            Logflare.JSON.encode!(le.body["event_message"], pretty: true),
+            []
+          )
+        )
       )
     end
 
@@ -205,14 +258,19 @@ defmodule LogflareWeb.SourceControllerTest do
         )
 
       conn
+      |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> assert_has("label", text: "session_id")
-      |> assert_has("label", text: "metadata.level")
-      |> assert_has("label", text: "m.user_id")
-      |> assert_has(".required-field-indicator", text: "required")
-      |> assert_has("input.form-control[id='recent-logs-field-session_id']")
-      |> assert_has("input.form-control[id='recent-logs-field-metadata.level']")
-      |> assert_has("input.form-control[id='recent-logs-field-m.user_id']")
+      |> expect(Expect.visible(by_text(by_css("label"), "session_id", []) |> first()))
+      |> expect(Expect.visible(by_text(by_css("label"), "metadata.level", []) |> first()))
+      |> expect(Expect.visible(by_text(by_css("label"), "m.user_id", []) |> first()))
+      |> expect(
+        Expect.visible(by_text(by_css(".required-field-indicator"), "required", []) |> first())
+      )
+      |> expect(Expect.visible(by_css("input.form-control[id='recent-logs-field-session_id']")))
+      |> expect(
+        Expect.visible(by_css("input.form-control[id='recent-logs-field-metadata.level']"))
+      )
+      |> expect(Expect.visible(by_css("input.form-control[id='recent-logs-field-m.user_id']")))
     end
 
     test "shows source schema modal trigger and content", %{conn: conn, source: source} do
@@ -222,14 +280,23 @@ defmodule LogflareWeb.SourceControllerTest do
       )
 
       conn
+      |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> assert_has("a[data-target='#sourceSchemaModal']", text: "schema")
-      |> assert_has("div#sourceSchemaModal")
-      |> assert_has("h5", text: "Source Schema")
-      |> assert_has("#source-schema-modal-table button[title='Copy markdown to clipboard']",
-        text: "Copy markdown"
+      |> expect(
+        Expect.visible(by_text(by_css("a[data-target='#sourceSchemaModal']"), "schema", []))
       )
-      |> assert_has("kbd", text: "metadata.status")
+      |> expect(Expect.count(by_css("div#sourceSchemaModal"), 1))
+      |> expect(Expect.visible(by_text(by_css("h5"), "Source Schema", []) |> first()))
+      |> expect(
+        Expect.visible(
+          by_text(
+            by_css("#source-schema-modal-table button[title='Copy markdown to clipboard']"),
+            "Copy markdown",
+            []
+          )
+        )
+      )
+      |> expect(Expect.visible(by_text(by_css("kbd"), "metadata.status", [])))
     end
 
     test "invalid source", %{conn: conn, source: source} do
@@ -283,9 +350,15 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(paid_user)
+      |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> assert_has("button", text: "Update SMS preferences", exact: true)
-      |> refute_has("p", text: "SMS alerts are not available with the Free plan.")
+      |> expect(Expect.visible(by_text(by_css("button"), "Update SMS preferences", exact: true)))
+      |> expect(
+        Expect.count(
+          by_text(by_css("p"), "SMS alerts are not available with the Free plan.", []),
+          0
+        )
+      )
     end
 
     test "free user", %{conn: conn, free_user: free_user} do
@@ -293,9 +366,14 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(free_user)
+      |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> refute_has("button", text: "Update SMS preferences", exact: true)
-      |> assert_has("p", text: "SMS alerts are not available with the Free plan.")
+      |> expect(Expect.count(by_text(by_css("button"), "Update SMS preferences", exact: true), 0))
+      |> expect(
+        Expect.visible(
+          by_text(by_css("p"), "SMS alerts are not available with the Free plan.", [])
+        )
+      )
     end
   end
 
@@ -313,10 +391,13 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(user)
+      |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> assert_has("h3", text: "Pipeline Rules", exact: true)
-      |> assert_has("h5", text: "Copy fields")
-      |> assert_has("button", text: "Update field copying rules", exact: true)
+      |> expect(Expect.visible(by_text(by_css("h3"), "Pipeline Rules", exact: true)))
+      |> expect(Expect.visible(by_text(by_css("h5"), "Copy fields", []) |> first()))
+      |> expect(
+        Expect.visible(by_text(by_css("button"), "Update field copying rules", exact: true))
+      )
 
       conn =
         conn
@@ -373,16 +454,17 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(user)
+      |> start_app_session()
       |> visit(~p"/dashboard")
-      |> click_link("New source")
-      |> assert_path(~p"/sources/new")
-      |> assert_has("h5", text: "~/logs/new")
-      |> assert_has("form")
-      |> assert_has("input[name='source[retention_days]'][placeholder='3']")
-      |> fill_in("Source Name", with: "MyApp.Logs")
-      |> fill_in("Backend TTL", with: "2")
-      |> submit()
-      |> assert_path(~p"/sources/*", query_params: %{new: true})
+      |> click(by_role(:link, name: "New source"))
+      |> expect(Expect.url(~r|/sources/new(?:\?.*)?$|))
+      |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
+      |> expect(Expect.visible(by_css("form")))
+      |> expect(Expect.visible(by_css("input[name='source[retention_days]'][placeholder='3']")))
+      |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
+      |> fill(by_label("Backend TTL", exact: true), "2")
+      |> submit(by_css("form"))
+      |> expect(Expect.url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
 
       assert %{bigquery_table_ttl: 2} = Sources.get_by(name: "MyApp.Logs")
     end
@@ -393,12 +475,13 @@ defmodule LogflareWeb.SourceControllerTest do
     } do
       conn
       |> login_user(user)
+      |> start_app_session()
       |> visit(~p"/sources/new")
-      |> fill_in("Source Name", with: "MyApp.OverLimit")
-      |> fill_in("Backend TTL", with: "4")
-      |> submit()
-      |> assert_path(~p"/sources")
-      |> assert_has(".help-block", text: "ttl is over your plan limit")
+      |> fill(by_label("Source Name", exact: true), "MyApp.OverLimit")
+      |> fill(by_label("Backend TTL", exact: true), "4")
+      |> submit(by_css("form"))
+      |> expect(Expect.url(~r|/sources(?:\?.*)?$|))
+      |> expect(Expect.visible(by_text(by_css(".help-block"), "ttl is over your plan limit", [])))
 
       refute Sources.get_by(name: "MyApp.OverLimit")
     end
@@ -409,21 +492,23 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(team.user, team_user)
+      |> start_app_session()
       |> visit(~p"/dashboard?t=#{team.id}")
-      |> click_link("New source")
-      |> assert_path(~p"/sources/new", query_params: %{t: team.id})
-      |> assert_has("h5", text: "~/logs/new")
-      |> assert_has("form")
-      |> fill_in("Source Name", with: "MyApp.Logs")
-      |> submit()
-      |> assert_path(~p"/sources/*", query_params: %{new: true})
-      |> assert_has("a", href: ~p"/dashboard?t=#{team.id}")
+      |> click(by_role(:link, name: "New source"))
+      |> expect(Expect.url(~r|/sources/new\?[^#]*t=#{team.id}[^#]*$|))
+      |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
+      |> expect(Expect.visible(by_css("form")))
+      |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
+      |> submit(by_css("form"))
+      |> expect(Expect.url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
+      |> expect(Expect.visible(by_css("a[href='#{~p"/dashboard?t=#{team.id}"}']")))
     end
 
     test "returns 403 for a user not logged in", %{conn: conn} do
-      assert conn
-             |> visit(~p"/sources/new")
-             |> assert_path(~p"/auth/login")
+      conn
+      |> start_app_session()
+      |> visit(~p"/sources/new")
+      |> expect(Expect.url(~p"/auth/login"))
     end
   end
 
@@ -695,9 +780,10 @@ defmodule LogflareWeb.SourceControllerTest do
 
     test "shows a source page", %{conn: conn, sources: [s1 | _]} do
       conn
+      |> start_app_session()
       |> visit(~p"/sources/public/#{s1.public_token}")
-      |> assert_has("h5 > a", text: s1.name)
-      |> assert_has("span#source-id", text: to_string(s1.token))
+      |> expect(Expect.visible(by_text(by_css("h5 > a"), s1.name, [])))
+      |> expect(Expect.visible(by_text(by_css("span#source-id"), to_string(s1.token), [])))
     end
   end
 
@@ -707,8 +793,15 @@ defmodule LogflareWeb.SourceControllerTest do
     test "deletes a source", %{conn: conn, sources: [s1 | _], users: [u1 | _]} do
       conn
       |> login_user(u1)
+      |> start_app_session()
       |> visit(~p"/dashboard")
-      |> assert_has("a", href: ~p"/sources/#{s1}", text: s1.name)
+      |> expect(
+        Expect.visible(
+          by_css("a[href^='#{~p"/sources/#{s1}"}']")
+          |> filter(has_text: s1.name)
+          |> first()
+        )
+      )
 
       assert conn
              |> login_user(u1)
@@ -719,8 +812,14 @@ defmodule LogflareWeb.SourceControllerTest do
 
       conn
       |> login_user(u1)
+      |> start_app_session()
       |> visit(~p"/dashboard")
-      |> refute_has("a", href: ~p"/sources/#{s1}", text: s1.name)
+      |> expect(
+        Expect.count(
+          by_css("a[href^='#{~p"/sources/#{s1}"}']") |> filter(has_text: s1.name),
+          0
+        )
+      )
     end
   end
 

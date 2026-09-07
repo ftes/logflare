@@ -1,5 +1,5 @@
 defmodule LogflareWeb.TeamUserControllerTest do
-  use LogflareWeb.ConnCase
+  use LogflareWeb.CerberusConnCase
 
   alias Logflare.TeamUsers
 
@@ -20,17 +20,18 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(member_user, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> assert_has("h5", text: "Profile Preferences", exact: true)
-    |> fill_in("Name", with: new_name)
-    |> fill_in("Preferred email", with: new_email)
-    |> fill_in("Phone number", with: new_phone)
-    |> click_button("Update preferences")
-    |> assert_has("#flash-info", text: "Profile updated!")
-    |> assert_has("input#team_user_name", value: new_name)
-    |> assert_has("input#team_user_email_preferred", value: new_email)
-    |> assert_has("input#team_user_phone", value: new_phone)
-    |> assert_path(~p"/profile/edit")
+    |> expect(Expect.visible(by_text(by_css("h5"), "Profile Preferences", exact: true)))
+    |> fill(by_label("Name", exact: true), new_name)
+    |> fill(by_label("Preferred email", exact: true), new_email)
+    |> fill(by_label("Phone number", exact: true), new_phone)
+    |> click(by_role(:button, name: "Update preferences"))
+    |> expect(Expect.visible(by_text(by_css("#flash-info"), "Profile updated!", [])))
+    |> expect(Expect.value(by_css("input#team_user_name"), new_name))
+    |> expect(Expect.value(by_css("input#team_user_email_preferred"), new_email))
+    |> expect(Expect.value(by_css("input#team_user_phone"), new_phone))
+    |> expect(Expect.url(~r|/profile/edit(?:\?.*)?$|))
 
     team_user = Logflare.Repo.reload!(team_user)
     assert team_user.name == new_name
@@ -40,8 +41,9 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
   test "not authenticated user is redirected to login page", %{conn: conn} do
     conn
+    |> start_app_session()
     |> visit(~p"/profile/edit")
-    |> assert_path(~p"/auth/login")
+    |> expect(Expect.url(~p"/auth/login"))
   end
 
   test "user can leave their team", %{conn: conn} do
@@ -57,10 +59,11 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> assert_has("h5", text: "Profile Preferences", exact: true)
-    |> click_link("Leave now")
-    |> assert_path(~p"/auth/login", query_params: %{team_user_deleted: "true"})
+    |> expect(Expect.visible(by_text(by_css("h5"), "Profile Preferences", exact: true)))
+    |> click(by_role(:link, name: "Leave now"))
+    |> expect(Expect.url(~r|/auth/login\?team_user_deleted=true$|))
 
     refute TeamUsers.get_team_user(team_user.id)
   end
@@ -156,13 +159,14 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> fill_in("Name", with: "Bruce Banner")
-    |> fill_in("Preferred email", with: "hulk@avengers.com")
-    |> click_button("Update preferences")
-    |> assert_has("#flash-error", text: "Something went wrong!")
-    |> assert_has("input#team_user_name", value: "Bruce Banner")
-    |> assert_has("input#team_user_email_preferred", value: "hulk@avengers.com")
+    |> fill(by_label("Name", exact: true), "Bruce Banner")
+    |> fill(by_label("Preferred email", exact: true), "hulk@avengers.com")
+    |> click(by_role(:button, name: "Update preferences"))
+    |> expect(Expect.visible(by_text(by_css("#flash-error"), "Something went wrong!", [])))
+    |> expect(Expect.value(by_css("input#team_user_name"), "Bruce Banner"))
+    |> expect(Expect.value(by_css("input#team_user_email_preferred"), "hulk@avengers.com"))
   end
 
   test "delete_self re-renders edit form when context returns error", %{conn: conn} do
@@ -181,10 +185,11 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> click_link("Leave now")
-    |> assert_has("#flash-error", text: "Something went wrong!")
-    |> assert_has("h5", text: "Profile Preferences", exact: true)
+    |> click(by_role(:link, name: "Leave now"))
+    |> expect(Expect.visible(by_text(by_css("#flash-error"), "Something went wrong!", [])))
+    |> expect(Expect.visible(by_text(by_css("h5"), "Profile Preferences", exact: true)))
 
     assert TeamUsers.get_team_user(team_user.id)
   end
@@ -196,10 +201,19 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> assert_has("h5", text: "Signed In with Github")
-    |> assert_has("a[href='https://github.com/settings/applications']", text: "Visit Github")
-    |> refute_has("a", text: "Visit Google")
+    |> expect(Expect.visible(by_text(by_css("h5"), "Signed In with Github", [])))
+    |> expect(
+      Expect.visible(
+        by_text(
+          by_css("a[href='https://github.com/settings/applications']"),
+          "Visit Github",
+          []
+        )
+      )
+    )
+    |> expect(Expect.count(by_text(by_css("a"), "Visit Google", []), 0))
   end
 
   test "edit page shows Google-specific section for google provider", %{conn: conn} do
@@ -209,10 +223,11 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> assert_has("h5", text: "Signed In with Google")
-    |> assert_has("a", text: "Visit Google")
-    |> refute_has("a", text: "Visit Github")
+    |> expect(Expect.visible(by_text(by_css("h5"), "Signed In with Google", [])))
+    |> expect(Expect.visible(by_text(by_css("a"), "Visit Google", []) |> first()))
+    |> expect(Expect.count(by_text(by_css("a"), "Visit Github", []), 0))
   end
 
   test "user can toggle email_me_product preference off", %{conn: conn} do
@@ -222,10 +237,11 @@ defmodule LogflareWeb.TeamUserControllerTest do
 
     conn
     |> login_user(owner, team_user)
+    |> start_app_session()
     |> visit(~p"/profile/edit?t=#{team.id}")
-    |> uncheck("Email me product updates")
-    |> click_button("Update preferences")
-    |> assert_has("#flash-info", text: "Profile updated!")
+    |> uncheck(by_label("Email me product updates", exact: true))
+    |> click(by_role(:button, name: "Update preferences"))
+    |> expect(Expect.visible(by_text(by_css("#flash-info"), "Profile updated!", [])))
 
     assert Logflare.Repo.reload!(team_user).email_me_product == false
   end

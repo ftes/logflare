@@ -1,6 +1,7 @@
 defmodule E2e.Features.BackendsTest do
-  use Logflare.FeatureCase, async: false
+  use Logflare.CerberusFeatureCase, async: false
 
+  alias Cerberus.Playwright.Handle
   alias Logflare.SingleTenant
   alias PlaywrightEx.Frame
 
@@ -34,126 +35,58 @@ defmodule E2e.Features.BackendsTest do
     end
 
     test "edit renders the read cluster editor with existing clusters", %{
-      backend: backend,
-      conn: conn
+      backend: backend
     } do
-      conn
-      |> visit(~p"/backends/#{backend.id}/edit")
-      |> assert_has("label", text: "Read-Only Cluster URLs (Optional)")
-      |> assert_has("button", text: "Add read cluster")
-      |> assert_has("#read-cluster-row-0 input[value='reporting']")
-      |> assert_has("#read-cluster-row-0 input[value='https://reporting.example.com:8443']")
-      |> assert_has("input[name='backend[config][default_read_cluster]'][value='reporting']")
+      backend
+      |> visit_backend_edit()
+      |> expect(Expect.visible(by_text(by_css("label"), "Read-Only Cluster URLs (Optional)", [])))
+      |> expect(Expect.visible(by_role(:button, name: "Add read cluster")))
+      |> expect(Expect.visible(by_css("#read-cluster-row-0 input[value='reporting']")))
+      |> expect(
+        Expect.visible(
+          by_css("#read-cluster-row-0 input[value='https://reporting.example.com:8443']")
+        )
+      )
+      |> expect(
+        Expect.visible(
+          by_css("input[name='backend[config][default_read_cluster]'][value='reporting']")
+        )
+      )
     end
 
-    test "edit can add and remove read cluster rows", %{backend: backend, conn: conn} do
-      conn
-      |> visit(~p"/backends/#{backend.id}/edit")
-      |> refute_has("#read-cluster-row-1")
-      |> click_button("Add read cluster")
-      |> assert_has("#read-cluster-row-1")
-      |> click("#read-cluster-row-1 button[phx-click='remove_row']")
-      |> refute_has("#read-cluster-row-1")
-      |> assert_has("#read-cluster-row-0 input[value='reporting']")
+    test "edit can add and remove read cluster rows", %{backend: backend} do
+      backend
+      |> visit_backend_edit()
+      |> expect(Expect.count(by_css("#read-cluster-row-1"), 0))
+      |> click(by_role(:button, name: "Add read cluster"))
+      |> expect(Expect.visible(by_css("#read-cluster-row-1")))
+      |> click(by_css("#read-cluster-row-1 button[phx-click='remove_row']"))
+      |> expect(Expect.count(by_css("#read-cluster-row-1"), 0))
+      |> expect(Expect.visible(by_css("#read-cluster-row-0 input[value='reporting']")))
     end
 
-    test "typing into a read cluster field does not sync to the server until blurred", %{
-      backend: backend,
-      conn: conn
-    } do
-      session = visit(conn, ~p"/backends/#{backend.id}/edit")
+    test "adding a row preserves unsaved cluster and default edits", %{backend: backend} do
+      label =
+        by_css("#read-cluster-row-0 input[name='backend[config][read_cluster_label_0]']")
 
-      unwrap(session, fn %{frame_id: frame_id} ->
-        {:ok, _} = Frame.fill(frame_id, selector: url_selector(0), value: "", timeout: 5_000)
+      url =
+        by_css("#read-cluster-row-0 input[name='backend[config][read_cluster_url_0]']")
 
-        {:ok, _} =
-          Frame.evaluate(frame_id,
-            expression: """
-            (() => {
-              window.__sentFrames = [];
-              const originalSend = WebSocket.prototype.send;
-              WebSocket.prototype.send = function (data) {
-                window.__sentFrames.push(data);
-                return originalSend.apply(this, arguments);
-              };
-              return true;
-            })()
-            """,
-            timeout: 5_000
-          )
+      default_cluster = by_css("input[name='backend[config][default_read_cluster]']")
 
-        {:ok, _} =
-          Frame.type(frame_id,
-            selector: url_selector(0),
-            text: "https://reader-b.example.com:8443",
-            delay: 10,
-            timeout: 5_000
-          )
-
-        {:ok, sent_before_blur} = sent_sync_frame_count(frame_id)
-        assert sent_before_blur == 0
-
-        {:ok, _} = Frame.blur(frame_id, selector: url_selector(0), timeout: 5_000)
-
-        {:ok, _} =
-          Frame.wait_for_function(frame_id,
-            expression:
-              "() => window.__sentFrames.some((f) => typeof f === 'string' && f.includes('\"sync\"'))",
-            is_function: true,
-            timeout: 5_000
-          )
-
-        {:ok, sent_after_blur} = sent_sync_frame_count(frame_id)
-        assert sent_after_blur == 1
-
-        assert {:ok, "https://reader-b.example.com:8443"} = input_value(frame_id, url_selector(0))
-      end)
-    end
-
-    test "adding a row preserves unsaved cluster and default edits", %{
-      backend: backend,
-      conn: conn
-    } do
-      session =
-        conn
-        |> visit(~p"/backends/#{backend.id}/edit")
-        |> assert_has("[data-phx-main].phx-connected")
-
-      unwrap(session, fn %{frame_id: frame_id} ->
-        Frame.fill(frame_id,
-          selector: label_selector(0),
-          value: "reporting-edited",
-          timeout: 5_000
-        )
-
-        Frame.fill(frame_id,
-          selector: url_selector(0),
-          value: "https://reporting-edited.example.com:8443",
-          timeout: 5_000
-        )
-
-        Frame.fill(frame_id,
-          selector: default_cluster_selector(),
-          value: "reporting-edited",
-          timeout: 5_000
-        )
-      end)
-
-      session = click_button(session, "Add read cluster")
-
-      session
-      |> assert_has("#read-cluster-row-1")
-      |> unwrap(fn %{frame_id: frame_id} ->
-        assert {:ok, "reporting-edited"} = input_value(frame_id, label_selector(0))
-
-        assert {:ok, "https://reporting-edited.example.com:8443"} =
-                 input_value(frame_id, url_selector(0))
-
-        assert {:ok, "reporting-edited"} =
-                 input_value(frame_id, default_cluster_selector())
-      end)
-      |> click_button("Save changes")
-      |> assert_has("*", text: "Successfully updated backend")
+      backend
+      |> visit_backend_edit()
+      |> expect(Expect.visible(by_css("[data-phx-main].phx-connected")))
+      |> fill(label, "reporting-edited")
+      |> fill(url, "https://reporting-edited.example.com:8443")
+      |> fill(default_cluster, "reporting-edited")
+      |> click(by_role(:button, name: "Add read cluster"))
+      |> expect(Expect.visible(by_css("#read-cluster-row-1")))
+      |> expect(Expect.value(label, "reporting-edited"))
+      |> expect(Expect.value(url, "https://reporting-edited.example.com:8443"))
+      |> expect(Expect.value(default_cluster, "reporting-edited"))
+      |> click(by_role(:button, name: "Save changes"))
+      |> expect(Expect.visible(by_text("Successfully updated backend")))
 
       config = Logflare.Backends.get_backend(backend.id).config
 
@@ -162,6 +95,66 @@ defmodule E2e.Features.BackendsTest do
              }
 
       assert config.default_read_cluster == "reporting-edited"
+    end
+
+    test "typing into a read cluster field does not sync to the server until blurred", %{
+      backend: backend
+    } do
+      url =
+        by_css("#read-cluster-row-0 input[name='backend[config][read_cluster_url_0]']")
+
+      session =
+        backend
+        |> visit_backend_edit()
+        |> fill(url, "")
+
+      true =
+        Cerberus.Playwright.evaluate(
+          session,
+          """
+          (() => {
+            window.__sentFrames = [];
+            const originalSend = WebSocket.prototype.send;
+            WebSocket.prototype.send = function (data) {
+              window.__sentFrames.push(data);
+              return originalSend.apply(this, arguments);
+            };
+            return true;
+          })()
+          """,
+          timeout: 5_000
+        )
+
+      session =
+        unwrap(session, fn %Handle{} = handle ->
+          {:ok, _} =
+            Frame.type(handle.frame_id,
+              selector: "#read-cluster-row-0 input[name='backend[config][read_cluster_url_0]']",
+              text: "https://reader-b.example.com:8443",
+              delay: 10,
+              connection: handle.connection,
+              timeout: 5_000
+            )
+        end)
+
+      assert sent_sync_frame_count(session) == 0
+
+      session = blur(session, url)
+
+      session =
+        unwrap(session, fn %Handle{} = handle ->
+          {:ok, _} =
+            Frame.wait_for_function(handle.frame_id,
+              expression:
+                "() => window.__sentFrames.some((f) => typeof f === 'string' && f.includes('\"sync\"'))",
+              is_function: true,
+              connection: handle.connection,
+              timeout: 5_000
+            )
+        end)
+
+      assert sent_sync_frame_count(session) == 1
+      expect(session, Expect.value(url, "https://reader-b.example.com:8443"))
     end
   end
 
@@ -192,34 +185,31 @@ defmodule E2e.Features.BackendsTest do
     end
 
     test "removing a row removes that row, leaving the others addressable", %{
-      backend: backend,
-      conn: conn
+      backend: backend
     } do
-      session = visit(conn, ~p"/backends/#{backend.id}/edit")
-
-      unwrap(session, fn %{frame_id: frame_id} ->
-        for ref <- 0..2, do: assert({:ok, _} = input_value(frame_id, ref))
-      end)
-
-      session = click(session, "#read-cluster-row-0 button[phx-click='remove_row']")
+      session = visit_backend_edit(backend)
 
       session
-      |> refute_has("#read-cluster-row-0")
-      |> assert_has("#read-cluster-row-1 input[value='beta']")
-      |> assert_has("#read-cluster-row-2 input[value='gamma']")
+      |> expect(Expect.value(read_cluster_label(0), "alpha"))
+      |> expect(Expect.value(read_cluster_label(1), "beta"))
+      |> expect(Expect.value(read_cluster_label(2), "gamma"))
 
-      unwrap(session, fn %{frame_id: frame_id} ->
-        assert {:ok, "beta"} = input_value(frame_id, 1)
-        assert {:ok, "gamma"} = input_value(frame_id, 2)
-      end)
+      session = click(session, by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
+
+      session
+      |> expect(Expect.count(by_css("#read-cluster-row-0"), 0))
+      |> expect(Expect.visible(by_css("#read-cluster-row-1 input[value='beta']")))
+      |> expect(Expect.visible(by_css("#read-cluster-row-2 input[value='gamma']")))
+      |> expect(Expect.value(read_cluster_label(1), "beta"))
+      |> expect(Expect.value(read_cluster_label(2), "gamma"))
     end
 
-    test "removing a row saves the remaining clusters", %{backend: backend, conn: conn} do
-      conn
-      |> visit(~p"/backends/#{backend.id}/edit")
-      |> click("#read-cluster-row-0 button[phx-click='remove_row']")
-      |> click_button("Save changes")
-      |> assert_has("*", text: "Successfully updated backend")
+    test "removing a row saves the remaining clusters", %{backend: backend} do
+      backend
+      |> visit_backend_edit()
+      |> click(by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
+      |> click(by_role(:button, name: "Save changes"))
+      |> expect(Expect.visible(by_text("Successfully updated backend")))
 
       assert Logflare.Backends.get_backend(backend.id).config.read_only_urls == %{
                "beta" => "https://b.example.com:8443",
@@ -228,42 +218,28 @@ defmodule E2e.Features.BackendsTest do
     end
 
     test "removing a row preserves unsaved edits in surviving rows and the default", %{
-      backend: backend,
-      conn: conn
+      backend: backend
     } do
-      session = visit(conn, ~p"/backends/#{backend.id}/edit")
+      label =
+        by_css("#read-cluster-row-2 input[name='backend[config][read_cluster_label_2]']")
 
-      unwrap(session, fn %{frame_id: frame_id} ->
-        Frame.fill(frame_id, selector: label_selector(2), value: "gamma-edited", timeout: 5_000)
+      url =
+        by_css("#read-cluster-row-2 input[name='backend[config][read_cluster_url_2]']")
 
-        Frame.fill(frame_id,
-          selector: url_selector(2),
-          value: "https://gamma-edited.example.com:8443",
-          timeout: 5_000
-        )
+      default_cluster = by_css("input[name='backend[config][default_read_cluster]']")
 
-        Frame.fill(frame_id,
-          selector: default_cluster_selector(),
-          value: "gamma-edited",
-          timeout: 5_000
-        )
-      end)
-
-      session = click(session, "#read-cluster-row-0 button[phx-click='remove_row']")
-
-      session
-      |> refute_has("#read-cluster-row-0")
-      |> unwrap(fn %{frame_id: frame_id} ->
-        assert {:ok, "gamma-edited"} = input_value(frame_id, label_selector(2))
-
-        assert {:ok, "https://gamma-edited.example.com:8443"} =
-                 input_value(frame_id, url_selector(2))
-
-        assert {:ok, "gamma-edited"} =
-                 input_value(frame_id, default_cluster_selector())
-      end)
-      |> click_button("Save changes")
-      |> assert_has("*", text: "Successfully updated backend")
+      backend
+      |> visit_backend_edit()
+      |> fill(label, "gamma-edited")
+      |> fill(url, "https://gamma-edited.example.com:8443")
+      |> fill(default_cluster, "gamma-edited")
+      |> click(by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
+      |> expect(Expect.count(by_css("#read-cluster-row-0"), 0))
+      |> expect(Expect.value(label, "gamma-edited"))
+      |> expect(Expect.value(url, "https://gamma-edited.example.com:8443"))
+      |> expect(Expect.value(default_cluster, "gamma-edited"))
+      |> click(by_role(:button, name: "Save changes"))
+      |> expect(Expect.visible(by_text("Successfully updated backend")))
 
       config = Logflare.Backends.get_backend(backend.id).config
 
@@ -276,31 +252,22 @@ defmodule E2e.Features.BackendsTest do
     end
   end
 
-  defp sent_sync_frame_count(frame_id) do
-    Frame.evaluate(frame_id,
-      expression:
-        "window.__sentFrames.filter((f) => typeof f === 'string' && f.includes('\"sync\"')).length",
+  defp visit_backend_edit(backend) do
+    start_browser_session()
+    |> visit(~p"/auth/login/single_tenant")
+    |> expect(Expect.url(~r|/dashboard\?t=\d+$|))
+    |> visit(~p"/backends/#{backend.id}/edit")
+  end
+
+  defp read_cluster_label(ref) do
+    by_css("#read-cluster-row-#{ref} input[name='backend[config][read_cluster_label_#{ref}]']")
+  end
+
+  defp sent_sync_frame_count(session) do
+    Cerberus.Playwright.evaluate(
+      session,
+      "window.__sentFrames.filter((f) => typeof f === 'string' && f.includes('\"sync\"')).length",
       timeout: 5_000
     )
-  end
-
-  defp input_value(frame_id, ref) when is_integer(ref) do
-    input_value(frame_id, label_selector(ref))
-  end
-
-  defp input_value(frame_id, selector) do
-    Frame.input_value(frame_id, selector: selector, timeout: 5_000)
-  end
-
-  defp label_selector(ref) do
-    "#read-cluster-row-#{ref} input[name='backend[config][read_cluster_label_#{ref}]']"
-  end
-
-  defp url_selector(ref) do
-    "#read-cluster-row-#{ref} input[name='backend[config][read_cluster_url_#{ref}]']"
-  end
-
-  defp default_cluster_selector do
-    "input[name='backend[config][default_read_cluster]']"
   end
 end

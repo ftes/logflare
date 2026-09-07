@@ -1,5 +1,5 @@
 defmodule LogflareWeb.AdminPlanControllerTest do
-  use LogflareWeb.ConnCase, async: true
+  use LogflareWeb.CerberusConnCase, async: true
 
   alias Logflare.Billing
 
@@ -21,17 +21,24 @@ defmodule LogflareWeb.AdminPlanControllerTest do
 
       conn
       |> login_user(admin)
+      |> start_app_session()
       |> visit(~p"/admin/plans")
-      |> assert_has("h5", text: "~/admin/plans")
-      |> assert_has("h1", text: "Plans")
-      |> assert_has("table")
-      |> assert_has("tbody tr:first-child td:nth-child(2)", text: "Free")
-      |> assert_has("tbody tr:nth-child(2) td:nth-child(2)", text: "Free Plan")
-      |> assert_has("tbody tr:nth-child(3) td:nth-child(2)", text: "Pro Plan")
-      |> assert_has("td", text: "0")
-      |> assert_has("td", text: "2000")
-      |> assert_has("a", text: "New plan")
-      |> assert_has("a", text: "Edit")
+      |> expect(Expect.visible(by_text(by_css("h5"), "~/admin/plans", [])))
+      |> expect(Expect.visible(by_text(by_css("h1"), "Plans", [])))
+      |> expect(Expect.visible(by_css("table")))
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:first-child td:nth-child(2)"), "Free", []))
+      )
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:nth-child(2) td:nth-child(2)"), "Free Plan", []))
+      )
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:nth-child(3) td:nth-child(2)"), "Pro Plan", []))
+      )
+      |> expect(Expect.visible(by_text(by_css("td"), "0", []) |> first()))
+      |> expect(Expect.visible(by_text(by_css("td"), "2000", []) |> first()))
+      |> expect(Expect.visible(by_text(by_css("a"), "New plan", []) |> first()))
+      |> expect(Expect.visible(by_text(by_css("a"), "Edit", []) |> first()))
     end
   end
 
@@ -43,44 +50,35 @@ defmodule LogflareWeb.AdminPlanControllerTest do
     end
 
     test "creates new plan", %{conn: conn, admin: admin} do
-      assert conn
-             |> login_user(admin)
-             |> visit(~p"/admin/plans")
-             |> click_link("New plan")
-             |> assert_path(~p"/admin/plans/new")
-             |> assert_has("h5", text: "~/admin/plans/new")
-             |> assert_has("h1", text: "New Plan")
-             |> assert_has("button[type='submit']")
-             |> fill_in("input[name='plan[name]']", "Name", with: "Test Plan")
-             |> fill_in("input[name='plan[stripe_id]']", "Stripe", with: "price_test123")
-             |> fill_in("input[name='plan[period]']", "Period", with: "month")
-             |> fill_in("input[name='plan[price]']", "Price", with: "1500")
-             |> fill_in("input[name='plan[limit_rate_limit]']", "Account Rate Limit (per second)",
-               with: "100"
-             )
-             |> fill_in(
-               "input[name='plan[limit_source_rate_limit]']",
-               "Source Rate Limit (per second)",
-               with: "50"
-             )
-             |> fill_in("input[name='plan[limit_alert_freq]']", "Alerts Every (milliseconds)",
-               with: "60000"
-             )
-             |> fill_in(
-               "input[name='plan[limit_saved_search_limit]']",
-               "Saved Searches (per source)",
-               with: "5"
-             )
-             |> fill_in("input[name='plan[limit_team_users_limit]']", "Team Users", with: "3")
-             |> fill_in("input[name='plan[limit_source_fields_limit]']", "Source Fields",
-               with: "300"
-             )
-             |> fill_in("input[name='plan[limit_source_ttl]']", "Source TTL", with: "259200000")
-             |> submit()
-             |> assert_path(~p"/admin/plans")
-             |> assert_has("#flash-info", text: "Plan created!")
-             |> assert_has("tbody tr:first-child td:nth-child(2)", text: "Free")
-             |> assert_has("tbody tr:nth-child(2) td:nth-child(2)", text: "Test Plan")
+      conn
+      |> login_user(admin)
+      |> start_app_session()
+      |> visit(~p"/admin/plans")
+      |> click(by_role(:link, name: "New plan"))
+      |> expect(Expect.url(~p"/admin/plans/new"))
+      |> expect(Expect.visible(by_text(by_css("h5"), "~/admin/plans/new", [])))
+      |> expect(Expect.visible(by_text(by_css("h1"), "New Plan", [])))
+      |> expect(Expect.visible(by_css("button[type='submit']")))
+      |> fill(by_label("Name", exact: true), "Test Plan")
+      |> fill(by_label("Stripe", exact: true), "price_test123")
+      |> fill(by_label("Period", exact: true), "month")
+      |> fill(by_label("Price", exact: true), "1500")
+      |> fill(by_label("Account Rate Limit (per second)", exact: true), "100")
+      |> fill(by_label("Source Rate Limit (per second)", exact: true), "50")
+      |> fill(by_label("Alerts Every (milliseconds)", exact: true), "60000")
+      |> fill(by_label("Saved Searches (per source)", exact: true), "5")
+      |> fill(by_label("Team Users", exact: true), "3")
+      |> fill(by_label("Source Fields", exact: true), "300")
+      |> fill(by_label("Source TTL", exact: true), "259200000")
+      |> submit(by_css("form"))
+      |> expect(Expect.url(~p"/admin/plans"))
+      |> expect(Expect.visible(by_text(by_css("#flash-info"), "Plan created!", [])))
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:first-child td:nth-child(2)"), "Free", []))
+      )
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:nth-child(2) td:nth-child(2)"), "Test Plan", []))
+      )
 
       assert plan = Billing.get_plan_by(name: "Test Plan")
       assert plan.name == "Test Plan"
@@ -93,17 +91,24 @@ defmodule LogflareWeb.AdminPlanControllerTest do
       conn: conn,
       admin: admin
     } do
-      assert conn
-             |> login_user(admin)
-             |> visit(~p"/admin/plans/new")
-             |> assert_has("h1", text: "New Plan")
-             |> assert_has("button[type='submit']")
-             |> fill_in("input[name='plan[name]']", "Name", with: "Minimal Plan")
-             |> submit()
-             |> assert_path(~p"/admin/plans")
-             |> assert_has("#flash-info", text: "Plan created!")
-             |> assert_has("tbody tr:first-child td:nth-child(2)", text: "Free")
-             |> assert_has("tbody tr:nth-child(2) td:nth-child(2)", text: "Minimal Plan")
+      conn
+      |> login_user(admin)
+      |> start_app_session()
+      |> visit(~p"/admin/plans/new")
+      |> expect(Expect.visible(by_text(by_css("h1"), "New Plan", [])))
+      |> expect(Expect.visible(by_css("button[type='submit']")))
+      |> fill(by_label("Name", exact: true), "Minimal Plan")
+      |> submit(by_css("form"))
+      |> expect(Expect.url(~p"/admin/plans"))
+      |> expect(Expect.visible(by_text(by_css("#flash-info"), "Plan created!", [])))
+      |> expect(
+        Expect.visible(by_text(by_css("tbody tr:first-child td:nth-child(2)"), "Free", []))
+      )
+      |> expect(
+        Expect.visible(
+          by_text(by_css("tbody tr:nth-child(2) td:nth-child(2)"), "Minimal Plan", [])
+        )
+      )
 
       assert plan = Billing.get_plan_by(name: "Minimal Plan")
       assert plan.name == "Minimal Plan"
@@ -131,20 +136,21 @@ defmodule LogflareWeb.AdminPlanControllerTest do
 
       conn
       |> login_user(admin)
+      |> start_app_session()
       |> visit(~p"/admin/plans")
-      |> click_link("a[href='#{~p"/admin/plans/#{plan}/edit"}']", "Edit")
-      |> assert_path(~p"/admin/plans/#{plan}/edit")
-      |> assert_has("h1", text: "Edit Plan")
-      |> assert_has("form")
-      |> assert_has("input[name='plan[name]'][value='Existing Plan']")
-      |> assert_has("input[name='plan[stripe_id]'][value='price_existing']")
-      |> assert_has("input[name='plan[price]'][value='1000']")
-      |> assert_has("input[name='plan[period]'][value='month']")
-      |> assert_has("input[name='plan[limit_sources]'][value='25']")
-      |> assert_has("button[type='submit']")
-      |> fill_in("input[name='plan[name]']", "Name", with: "Updated Plan")
-      |> fill_in("input[name='plan[price]']", "Price", with: "1500")
-      |> submit()
+      |> click(by_text(by_css("a[href='#{~p"/admin/plans/#{plan}/edit"}']"), "Edit", []))
+      |> expect(Expect.url(~p"/admin/plans/#{plan}/edit"))
+      |> expect(Expect.visible(by_text(by_css("h1"), "Edit Plan", [])))
+      |> expect(Expect.visible(by_css("form")))
+      |> expect(Expect.value(by_css("input[name='plan[name]']"), "Existing Plan"))
+      |> expect(Expect.value(by_css("input[name='plan[stripe_id]']"), "price_existing"))
+      |> expect(Expect.value(by_css("input[name='plan[price]']"), "1000"))
+      |> expect(Expect.value(by_css("input[name='plan[period]']"), "month"))
+      |> expect(Expect.value(by_css("input[name='plan[limit_sources]']"), "25"))
+      |> expect(Expect.visible(by_css("button[type='submit']")))
+      |> fill(by_label("Name", exact: true), "Updated Plan")
+      |> fill(by_label("Price", exact: true), "1500")
+      |> submit(by_css("form"))
 
       assert updated_plan = Billing.get_plan!(plan.id)
       assert updated_plan.name == "Updated Plan"

@@ -1,5 +1,5 @@
 defmodule E2e.Features.RegistrationTest do
-  use Logflare.FeatureCase, async: false
+  use Logflare.CerberusFeatureCase, async: false
 
   setup do
     start_supervised!(Logflare.SystemMetricsSup)
@@ -10,10 +10,10 @@ defmodule E2e.Features.RegistrationTest do
   describe "single tenant ui" do
     TestUtils.setup_single_tenant(seed_user: true)
 
-    test "redirect to dashboard", %{conn: conn} do
-      conn
+    test "redirect to dashboard" do
+      start_browser_session()
       |> visit(~p"/")
-      |> assert_path(~p"/dashboard")
+      |> expect(Expect.url(~r|/dashboard(?:\?t=\d+)?$|))
     end
   end
 end

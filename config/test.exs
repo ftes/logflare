@@ -74,7 +74,11 @@ config :tesla, Logflare.Backends.Adaptor.WebhookAdaptor.Client, adapter: Tesla.M
 
 config :logflare, Oban, testing: :manual
 
-config :phoenix_test, otp_app: :logflare, endpoint: LogflareWeb.Endpoint
+config :cerberus, Cerberus.Sandbox, header: "user-agent"
+
+config :cerberus,
+  endpoint: LogflareWeb.Endpoint,
+  ecto_repos: [Logflare.Repo]
 
 config :opentelemetry,
   sdk_disabled: false,
