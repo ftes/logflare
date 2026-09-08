@@ -155,7 +155,7 @@ defmodule Logflare.Mixfile do
 
       # Test
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:fluffy, path: System.get_env("FLUFFY_PATH", "../fluffy"), only: :test},
+      {:fluffy, "~> 0.1.0", only: :test},
       {:mimic, "~> 2.0", only: [:dev, :test]},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
 
