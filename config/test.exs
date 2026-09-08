@@ -74,9 +74,9 @@ config :tesla, Logflare.Backends.Adaptor.WebhookAdaptor.Client, adapter: Tesla.M
 
 config :logflare, Oban, testing: :manual
 
-config :cerberus, Cerberus.Sandbox, header: "user-agent"
+config :fluffy, Fluffy.Sandbox, header: "user-agent"
 
-config :cerberus,
+config :fluffy,
   endpoint: LogflareWeb.Endpoint,
   ecto_repos: [Logflare.Repo]
 

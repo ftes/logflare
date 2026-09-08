@@ -1,4 +1,4 @@
-defmodule Logflare.CerberusFeatureCase do
+defmodule Logflare.FluffyFeatureCase do
   use ExUnit.CaseTemplate
 
   using do
@@ -6,11 +6,11 @@ defmodule Logflare.CerberusFeatureCase do
       use Mimic
       use LogflareWeb, :routes
 
-      import Cerberus
-      import Cerberus.Locator
+      import Fluffy
+      import Fluffy.Locator
       import Logflare.Factory
 
-      alias Cerberus.Expect
+      alias Fluffy.Expect
       alias Logflare.Backends.IngestEventQueue
       alias Logflare.PubSubRates
       alias Logflare.TestUtils
@@ -32,7 +32,7 @@ defmodule Logflare.CerberusFeatureCase do
 
       def start_browser_session(options \\ []) do
         defaults = [base_url: LogflareWeb.Endpoint.url(), timeout: :timer.seconds(40)]
-        Cerberus.start_session(:playwright, Keyword.merge(defaults, options))
+        Fluffy.start_session(:playwright, Keyword.merge(defaults, options))
       end
     end
   end
@@ -41,6 +41,6 @@ defmodule Logflare.CerberusFeatureCase do
     Logflare.DataCase.setup_sandbox(context)
     Logflare.DataCase.setup_mocking(context)
 
-    Cerberus.Test.setup(context, repos: [Logflare.Repo], timeout: :timer.seconds(40))
+    Fluffy.Test.setup(context, repos: [Logflare.Repo], timeout: :timer.seconds(40))
   end
 end

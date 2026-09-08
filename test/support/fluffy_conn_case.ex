@@ -1,17 +1,17 @@
-defmodule LogflareWeb.CerberusConnCase do
+defmodule LogflareWeb.FluffyConnCase do
   use ExUnit.CaseTemplate
 
   using opts do
     quote do
       use LogflareWeb.ConnCase, unquote(opts)
 
-      import Cerberus, except: [expect: 3]
-      import Cerberus.Locator
+      import Fluffy, except: [expect: 3]
+      import Fluffy.Locator
 
-      alias Cerberus.Expect
+      alias Fluffy.Expect
 
       setup context do
-        Cerberus.Test.setup(context, repos: [Logflare.Repo])
+        Fluffy.Test.setup(context, repos: [Logflare.Repo])
       end
 
       defp start_app_session(conn) do

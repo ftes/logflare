@@ -41,14 +41,14 @@ if config_env() == :test and Env.get_boolean("E2E") do
   # at runtime.
   config :logflare, LogflareWeb.Endpoint, server: true
 
-  config :cerberus,
+  config :fluffy,
     playwright: [
       enabled: true,
       engine: :chromium,
       executable: Path.expand("../assets/node_modules/playwright/cli.js", __DIR__),
       timeout: :timer.seconds(40),
       launch_options: [headless: true],
-      artifact_dir: System.get_env("CERBERUS_ARTIFACT_DIR")
+      artifact_dir: System.get_env("FLUFFY_ARTIFACT_DIR")
     ]
 end
 

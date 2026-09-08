@@ -1,5 +1,5 @@
 defmodule LogflareWeb.SourceControllerTest do
-  use LogflareWeb.CerberusConnCase
+  use LogflareWeb.FluffyConnCase
 
   alias Logflare.Backends
   alias Logflare.Backends.SourceSup
@@ -113,7 +113,7 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_browser_session(team_user.email)
       |> visit(~p"/dashboard")
-      |> expect(Cerberus.Page.to_have_url(~r|/dashboard(?:\?.*)?$|, timeout: 5_000))
+      |> expect(Fluffy.Page.to_have_url(~r|/dashboard(?:\?.*)?$|, timeout: 5_000))
       |> click(by_css("#teamDropdown"))
       |> click(
         by_css(~s|a[href^="/teams/switch?team_id=#{admin_team.id}"]|)
@@ -457,14 +457,14 @@ defmodule LogflareWeb.SourceControllerTest do
       |> start_app_session()
       |> visit(~p"/dashboard")
       |> click(by_role(:link, name: "New source"))
-      |> expect(Cerberus.Page.to_have_url(~r|/sources/new(?:\?.*)?$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/sources/new(?:\?.*)?$|))
       |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
       |> expect(Expect.visible(by_css("form")))
       |> expect(Expect.visible(by_css("input[name='source[retention_days]'][placeholder='3']")))
       |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
       |> fill(by_label("Backend TTL", exact: true), "2")
       |> submit(by_css("form"))
-      |> expect(Cerberus.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
 
       assert %{bigquery_table_ttl: 2} = Sources.get_by(name: "MyApp.Logs")
     end
@@ -480,7 +480,7 @@ defmodule LogflareWeb.SourceControllerTest do
       |> fill(by_label("Source Name", exact: true), "MyApp.OverLimit")
       |> fill(by_label("Backend TTL", exact: true), "4")
       |> submit(by_css("form"))
-      |> expect(Cerberus.Page.to_have_url(~r|/sources(?:\?.*)?$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/sources(?:\?.*)?$|))
       |> expect(Expect.visible(by_text(by_css(".help-block"), "ttl is over your plan limit", [])))
 
       refute Sources.get_by(name: "MyApp.OverLimit")
@@ -495,12 +495,12 @@ defmodule LogflareWeb.SourceControllerTest do
       |> start_app_session()
       |> visit(~p"/dashboard?t=#{team.id}")
       |> click(by_role(:link, name: "New source"))
-      |> expect(Cerberus.Page.to_have_url(~r|/sources/new\?[^#]*t=#{team.id}[^#]*$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/sources/new\?[^#]*t=#{team.id}[^#]*$|))
       |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
       |> expect(Expect.visible(by_css("form")))
       |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
       |> submit(by_css("form"))
-      |> expect(Cerberus.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
       |> expect(Expect.visible(by_css("a[href='#{~p"/dashboard?t=#{team.id}"}']")))
     end
 
@@ -508,7 +508,7 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/new")
-      |> expect(Cerberus.Page.to_have_url(~p"/auth/login"))
+      |> expect(Fluffy.Page.to_have_url(~p"/auth/login"))
     end
   end
 

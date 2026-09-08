@@ -1,7 +1,7 @@
 defmodule E2e.Features.BackendsTest do
-  use Logflare.CerberusFeatureCase, async: false
+  use Logflare.FluffyFeatureCase, async: false
 
-  alias Cerberus.Playwright.Handle
+  alias Fluffy.Playwright.Handle
   alias Logflare.SingleTenant
   alias PlaywrightEx.Frame
 
@@ -109,7 +109,7 @@ defmodule E2e.Features.BackendsTest do
         |> fill(url, "")
 
       true =
-        Cerberus.Playwright.evaluate(
+        Fluffy.Playwright.evaluate(
           session,
           """
           (() => {
@@ -255,7 +255,7 @@ defmodule E2e.Features.BackendsTest do
   defp visit_backend_edit(backend) do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Cerberus.Page.to_have_url(~r|/dashboard\?t=\d+$|))
+    |> expect(Fluffy.Page.to_have_url(~r|/dashboard\?t=\d+$|))
     |> visit(~p"/backends/#{backend.id}/edit")
   end
 
@@ -264,7 +264,7 @@ defmodule E2e.Features.BackendsTest do
   end
 
   defp sent_sync_frame_count(session) do
-    Cerberus.Playwright.evaluate(
+    Fluffy.Playwright.evaluate(
       session,
       "window.__sentFrames.filter((f) => typeof f === 'string' && f.includes('\"sync\"')).length",
       timeout: 5_000

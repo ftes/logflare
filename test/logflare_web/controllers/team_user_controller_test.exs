@@ -1,5 +1,5 @@
 defmodule LogflareWeb.TeamUserControllerTest do
-  use LogflareWeb.CerberusConnCase
+  use LogflareWeb.FluffyConnCase
 
   alias Logflare.TeamUsers
 
@@ -31,7 +31,7 @@ defmodule LogflareWeb.TeamUserControllerTest do
     |> expect(Expect.value(by_css("input#team_user_name"), new_name))
     |> expect(Expect.value(by_css("input#team_user_email_preferred"), new_email))
     |> expect(Expect.value(by_css("input#team_user_phone"), new_phone))
-    |> expect(Cerberus.Page.to_have_url(~r|/profile/edit(?:\?.*)?$|))
+    |> expect(Fluffy.Page.to_have_url(~r|/profile/edit(?:\?.*)?$|))
 
     team_user = Logflare.Repo.reload!(team_user)
     assert team_user.name == new_name
@@ -43,7 +43,7 @@ defmodule LogflareWeb.TeamUserControllerTest do
     conn
     |> start_app_session()
     |> visit(~p"/profile/edit")
-    |> expect(Cerberus.Page.to_have_url(~p"/auth/login"))
+    |> expect(Fluffy.Page.to_have_url(~p"/auth/login"))
   end
 
   test "user can leave their team", %{conn: conn} do
@@ -63,7 +63,7 @@ defmodule LogflareWeb.TeamUserControllerTest do
     |> visit(~p"/profile/edit?t=#{team.id}")
     |> expect(Expect.visible(by_text(by_css("h5"), "Profile Preferences", exact: true)))
     |> click(by_role(:link, name: "Leave now"))
-    |> expect(Cerberus.Page.to_have_url(~r|/auth/login\?team_user_deleted=true$|))
+    |> expect(Fluffy.Page.to_have_url(~r|/auth/login\?team_user_deleted=true$|))
 
     refute TeamUsers.get_team_user(team_user.id)
   end

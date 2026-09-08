@@ -1,5 +1,5 @@
 defmodule E2e.Features.RegistrationTest do
-  use Logflare.CerberusFeatureCase, async: false
+  use Logflare.FluffyFeatureCase, async: false
 
   setup do
     start_supervised!(Logflare.SystemMetricsSup)
@@ -13,7 +13,7 @@ defmodule E2e.Features.RegistrationTest do
     test "redirect to dashboard" do
       start_browser_session()
       |> visit(~p"/")
-      |> expect(Cerberus.Page.to_have_url(~r|/dashboard(?:\?t=\d+)?$|))
+      |> expect(Fluffy.Page.to_have_url(~r|/dashboard(?:\?t=\d+)?$|))
     end
   end
 end

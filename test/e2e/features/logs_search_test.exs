@@ -1,7 +1,7 @@
 defmodule E2e.Features.LogsSearchTest do
-  use Logflare.CerberusFeatureCase, async: false
+  use Logflare.FluffyFeatureCase, async: false
 
-  alias Cerberus.Playwright.Handle
+  alias Fluffy.Playwright.Handle
   alias Logflare.Backends
   alias Logflare.SingleTenant
   alias PlaywrightEx.Frame
@@ -161,7 +161,7 @@ defmodule E2e.Features.LogsSearchTest do
         |> expect(Expect.visible(bar_selector |> by_css() |> first(), timeout: 10_000))
 
       %{"x" => x, "y" => y} =
-        Cerberus.Playwright.evaluate(
+        Fluffy.Playwright.evaluate(
           session,
           """
           ({ barSelector, chartSelector }) => {
@@ -197,7 +197,7 @@ defmodule E2e.Features.LogsSearchTest do
         )
 
       querystring =
-        Cerberus.Playwright.evaluate(
+        Fluffy.Playwright.evaluate(
           session,
           ~S|document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""|,
           timeout: 5_000
@@ -210,7 +210,7 @@ defmodule E2e.Features.LogsSearchTest do
   defp start_logged_in_session do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Cerberus.Page.to_have_url(~r|/dashboard\?t=\d+$|))
+    |> expect(Fluffy.Page.to_have_url(~r|/dashboard\?t=\d+$|))
   end
 
   defp click_date_range_preset(session, preset) do
@@ -245,7 +245,7 @@ defmodule E2e.Features.LogsSearchTest do
     session
     |> expect(Expect.count(by_css(selector), 1, timeout: timeout_ms))
     |> then(fn session ->
-      Cerberus.Playwright.evaluate(
+      Fluffy.Playwright.evaluate(
         session,
         ~S|document.querySelector("#lql-editor-hook")?.dataset.querystring ?? ""|,
         timeout: 5_000

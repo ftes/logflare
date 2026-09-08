@@ -1,6 +1,6 @@
 defmodule LogflareWeb.TeamSwitcherTest do
   @moduledoc false
-  use LogflareWeb.CerberusConnCase
+  use LogflareWeb.FluffyConnCase
 
   setup %{conn: conn} do
     insert(:plan)

@@ -155,7 +155,7 @@ defmodule Logflare.Mixfile do
 
       # Test
       {:mix_test_watch, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:cerberus, path: "/Users/ftes/src/cerberus2", only: :test},
+      {:fluffy, path: System.get_env("FLUFFY_PATH", "../fluffy"), only: :test},
       {:mimic, "~> 2.0", only: [:dev, :test]},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
 
