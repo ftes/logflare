@@ -14,7 +14,7 @@ defmodule LogflareWeb.Sources.RulesLiveTest do
     conn
     |> start_app_session()
     |> visit(~p"/sources/#{source}/rules")
-    |> expect(Expect.url(~p"/auth/login"))
+    |> expect(Cerberus.Page.to_have_url(~p"/auth/login"))
   end
 
   test "returns 403 for source that doesn't belong to user", %{conn: conn} do

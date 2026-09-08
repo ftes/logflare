@@ -255,7 +255,7 @@ defmodule E2e.Features.BackendsTest do
   defp visit_backend_edit(backend) do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Expect.url(~r|/dashboard\?t=\d+$|))
+    |> expect(Cerberus.Page.to_have_url(~r|/dashboard\?t=\d+$|))
     |> visit(~p"/backends/#{backend.id}/edit")
   end
 

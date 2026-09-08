@@ -210,7 +210,7 @@ defmodule E2e.Features.LogsSearchTest do
   defp start_logged_in_session do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Expect.url(~r|/dashboard\?t=\d+$|))
+    |> expect(Cerberus.Page.to_have_url(~r|/dashboard\?t=\d+$|))
   end
 
   defp click_date_range_preset(session, preset) do
