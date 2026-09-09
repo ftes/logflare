@@ -20,15 +20,11 @@ defmodule LogflareWeb.TeamSwitcherTest do
       conn
       |> start_app_session()
       |> visit("/account/edit")
-      |> expect(
-        Expect.visible(by_text(by_css("#team-switcher a"), user.team.name, []) |> first())
+      |> assert(visible(by_text(by_css("#team-switcher a"), user.team.name, []) |> first()))
+      |> assert(
+        visible(by_text(by_css("#team-switcher a"), user.team.name <> " " <> "home team", []))
       )
-      |> expect(
-        Expect.visible(
-          by_text(by_css("#team-switcher a"), user.team.name <> " " <> "home team", [])
-        )
-      )
-      |> expect(Expect.visible(by_text(by_css("#team-switcher a"), team2.name, [])))
+      |> assert(visible(by_text(by_css("#team-switcher a"), team2.name, [])))
     end
 
     test "renders current team name bold", %{conn: conn, user: user} do
@@ -38,10 +34,8 @@ defmodule LogflareWeb.TeamSwitcherTest do
       conn
       |> start_app_session()
       |> visit("/account/edit")
-      |> expect(
-        Expect.visible(
-          by_text(by_css(~s|#team-switcher a[class~=tw-font-bold]|), user.team.name, [])
-        )
+      |> assert(
+        visible(by_text(by_css(~s|#team-switcher a[class~=tw-font-bold]|), user.team.name, []))
       )
     end
 
@@ -49,7 +43,7 @@ defmodule LogflareWeb.TeamSwitcherTest do
       conn
       |> start_app_session()
       |> visit("/account/edit")
-      |> expect(Expect.visible(by_text(by_css("#team-switcher span"), user.team.name, [])))
+      |> assert(visible(by_text(by_css("#team-switcher span"), user.team.name, [])))
     end
 
     test "preserves query params in team switcher links", %{conn: conn, user: user} do
@@ -59,8 +53,8 @@ defmodule LogflareWeb.TeamSwitcherTest do
       conn
       |> start_app_session()
       |> visit("/account/edit?key=test")
-      |> expect(
-        Expect.visible(
+      |> assert(
+        visible(
           by_css(
             ~s|#team-switcher a[href="/teams/switch?team_id=#{team2.id}&redirect_to=%2Faccount%2Fedit%3Fkey%3Dtest"]|
           )

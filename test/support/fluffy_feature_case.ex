@@ -6,11 +6,12 @@ defmodule Logflare.FluffyFeatureCase do
       use Mimic
       use LogflareWeb, :routes
 
+      use Fluffy.Assert
+
       import Fluffy
       import Fluffy.Locator
       import Logflare.Factory
 
-      alias Fluffy.Expect
       alias Logflare.Backends.IngestEventQueue
       alias Logflare.PubSubRates
       alias Logflare.TestUtils

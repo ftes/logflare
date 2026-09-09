@@ -5,10 +5,10 @@ defmodule LogflareWeb.FluffyConnCase do
     quote do
       use LogflareWeb.ConnCase, unquote(opts)
 
-      import Fluffy, except: [expect: 3]
-      import Fluffy.Locator
+      use Fluffy.Assert
 
-      alias Fluffy.Expect
+      import Fluffy
+      import Fluffy.Locator
 
       setup context do
         Fluffy.Test.setup(context, repos: [Logflare.Repo])

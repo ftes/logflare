@@ -88,8 +88,8 @@ defmodule LogflareWeb.SourceControllerTest do
           _ -> session
         end
       end)
-      |> expect(
-        Expect.visible(by_css("a[href*='t=#{team_id}']") |> filter(has_text: "Admin") |> first())
+      |> assert(
+        visible(by_css("a[href*='t=#{team_id}']") |> filter(has_text: "Admin") |> first())
       )
     end
 
@@ -113,14 +113,14 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_browser_session(team_user.email)
       |> visit(~p"/dashboard")
-      |> expect(Fluffy.Page.to_have_url(~r|/dashboard(?:\?.*)?$|, timeout: 5_000))
+      |> assert(page_url(~r|/dashboard(?:\?.*)?$|, timeout: 5_000))
       |> click(by_css("#teamDropdown"))
       |> click(
         by_css(~s|a[href^="/teams/switch?team_id=#{admin_team.id}"]|)
         |> filter(has_text: admin_team.name)
       )
-      |> expect(
-        Expect.visible(
+      |> assert(
+        visible(
           by_css("a[href*='t=#{admin_team.id}']")
           |> filter(has_text: "Admin")
           |> first()
@@ -182,13 +182,11 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> expect(
-        Expect.visible(
-          by_text(by_css("h5 > a[href='#{~p"/sources/#{source}"}']"), source.name, [])
-        )
+      |> assert(
+        visible(by_text(by_css("h5 > a[href='#{~p"/sources/#{source}"}']"), source.name, []))
       )
-      |> expect(Expect.visible(by_text(by_css("li > a"), "Sign out", exact: true)))
-      |> expect(Expect.visible(by_text(by_css("button > span"), "Search", exact: true)))
+      |> assert(visible(by_text(by_css("li > a"), "Sign out", exact: true)))
+      |> assert(visible(by_text(by_css("button > span"), "Search", exact: true)))
     end
 
     test "show source uses default search LQL as search input value", %{conn: conn, user: user} do
@@ -211,10 +209,10 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> expect(Expect.visible(by_text(by_css("li > a"), "event body", exact: true)))
-      |> expect(Expect.visible(by_text(by_css("li mark.log-level-debug"), "debug", [])))
-      |> expect(
-        Expect.visible(
+      |> assert(visible(by_text(by_css("li > a"), "event body", exact: true)))
+      |> assert(visible(by_text(by_css("li mark.log-level-debug"), "debug", [])))
+      |> assert(
+        visible(
           by_text(
             by_css("pre > code"),
             Logflare.JSON.encode!(le.body["event_message"], pretty: true),
@@ -260,17 +258,13 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> expect(Expect.visible(by_text(by_css("label"), "session_id", []) |> first()))
-      |> expect(Expect.visible(by_text(by_css("label"), "metadata.level", []) |> first()))
-      |> expect(Expect.visible(by_text(by_css("label"), "m.user_id", []) |> first()))
-      |> expect(
-        Expect.visible(by_text(by_css(".required-field-indicator"), "required", []) |> first())
-      )
-      |> expect(Expect.visible(by_css("input.form-control[id='recent-logs-field-session_id']")))
-      |> expect(
-        Expect.visible(by_css("input.form-control[id='recent-logs-field-metadata.level']"))
-      )
-      |> expect(Expect.visible(by_css("input.form-control[id='recent-logs-field-m.user_id']")))
+      |> assert(visible(by_text(by_css("label"), "session_id", []) |> first()))
+      |> assert(visible(by_text(by_css("label"), "metadata.level", []) |> first()))
+      |> assert(visible(by_text(by_css("label"), "m.user_id", []) |> first()))
+      |> assert(visible(by_text(by_css(".required-field-indicator"), "required", []) |> first()))
+      |> assert(visible(by_css("input.form-control[id='recent-logs-field-session_id']")))
+      |> assert(visible(by_css("input.form-control[id='recent-logs-field-metadata.level']")))
+      |> assert(visible(by_css("input.form-control[id='recent-logs-field-m.user_id']")))
     end
 
     test "shows source schema modal trigger and content", %{conn: conn, source: source} do
@@ -282,13 +276,11 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/#{source}")
-      |> expect(
-        Expect.visible(by_text(by_css("a[data-target='#sourceSchemaModal']"), "schema", []))
-      )
-      |> expect(Expect.count(by_css("div#sourceSchemaModal"), 1))
-      |> expect(Expect.visible(by_text(by_css("h5"), "Source Schema", []) |> first()))
-      |> expect(
-        Expect.visible(
+      |> assert(visible(by_text(by_css("a[data-target='#sourceSchemaModal']"), "schema", [])))
+      |> assert(count(by_css("div#sourceSchemaModal"), 1))
+      |> assert(visible(by_text(by_css("h5"), "Source Schema", []) |> first()))
+      |> assert(
+        visible(
           by_text(
             by_css("#source-schema-modal-table button[title='Copy markdown to clipboard']"),
             "Copy markdown",
@@ -296,7 +288,7 @@ defmodule LogflareWeb.SourceControllerTest do
           )
         )
       )
-      |> expect(Expect.visible(by_text(by_css("kbd"), "metadata.status", [])))
+      |> assert(visible(by_text(by_css("kbd"), "metadata.status", [])))
     end
 
     test "invalid source", %{conn: conn, source: source} do
@@ -352,9 +344,9 @@ defmodule LogflareWeb.SourceControllerTest do
       |> login_user(paid_user)
       |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> expect(Expect.visible(by_text(by_css("button"), "Update SMS preferences", exact: true)))
-      |> expect(
-        Expect.count(
+      |> assert(visible(by_text(by_css("button"), "Update SMS preferences", exact: true)))
+      |> assert(
+        count(
           by_text(by_css("p"), "SMS alerts are not available with the Free plan.", []),
           0
         )
@@ -368,11 +360,9 @@ defmodule LogflareWeb.SourceControllerTest do
       |> login_user(free_user)
       |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> expect(Expect.count(by_text(by_css("button"), "Update SMS preferences", exact: true), 0))
-      |> expect(
-        Expect.visible(
-          by_text(by_css("p"), "SMS alerts are not available with the Free plan.", [])
-        )
+      |> assert(count(by_text(by_css("button"), "Update SMS preferences", exact: true), 0))
+      |> assert(
+        visible(by_text(by_css("p"), "SMS alerts are not available with the Free plan.", []))
       )
     end
   end
@@ -393,11 +383,9 @@ defmodule LogflareWeb.SourceControllerTest do
       |> login_user(user)
       |> start_app_session()
       |> visit(~p"/sources/#{source}/edit")
-      |> expect(Expect.visible(by_text(by_css("h3"), "Pipeline Rules", exact: true)))
-      |> expect(Expect.visible(by_text(by_css("h5"), "Copy fields", []) |> first()))
-      |> expect(
-        Expect.visible(by_text(by_css("button"), "Update field copying rules", exact: true))
-      )
+      |> assert(visible(by_text(by_css("h3"), "Pipeline Rules", exact: true)))
+      |> assert(visible(by_text(by_css("h5"), "Copy fields", []) |> first()))
+      |> assert(visible(by_text(by_css("button"), "Update field copying rules", exact: true)))
 
       conn =
         conn
@@ -457,14 +445,14 @@ defmodule LogflareWeb.SourceControllerTest do
       |> start_app_session()
       |> visit(~p"/dashboard")
       |> click(by_role(:link, name: "New source"))
-      |> expect(Fluffy.Page.to_have_url(~r|/sources/new(?:\?.*)?$|))
-      |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
-      |> expect(Expect.visible(by_css("form")))
-      |> expect(Expect.visible(by_css("input[name='source[retention_days]'][placeholder='3']")))
+      |> assert(page_url(~r|/sources/new(?:\?.*)?$|))
+      |> assert(visible(by_text(by_css("h5"), "~/logs/new", [])))
+      |> assert(visible(by_css("form")))
+      |> assert(visible(by_css("input[name='source[retention_days]'][placeholder='3']")))
       |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
       |> fill(by_label("Backend TTL", exact: true), "2")
       |> submit(by_css("form"))
-      |> expect(Fluffy.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
+      |> assert(page_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
 
       assert %{bigquery_table_ttl: 2} = Sources.get_by(name: "MyApp.Logs")
     end
@@ -480,8 +468,8 @@ defmodule LogflareWeb.SourceControllerTest do
       |> fill(by_label("Source Name", exact: true), "MyApp.OverLimit")
       |> fill(by_label("Backend TTL", exact: true), "4")
       |> submit(by_css("form"))
-      |> expect(Fluffy.Page.to_have_url(~r|/sources(?:\?.*)?$|))
-      |> expect(Expect.visible(by_text(by_css(".help-block"), "ttl is over your plan limit", [])))
+      |> assert(page_url(~r|/sources(?:\?.*)?$|))
+      |> assert(visible(by_text(by_css(".help-block"), "ttl is over your plan limit", [])))
 
       refute Sources.get_by(name: "MyApp.OverLimit")
     end
@@ -495,20 +483,20 @@ defmodule LogflareWeb.SourceControllerTest do
       |> start_app_session()
       |> visit(~p"/dashboard?t=#{team.id}")
       |> click(by_role(:link, name: "New source"))
-      |> expect(Fluffy.Page.to_have_url(~r|/sources/new\?[^#]*t=#{team.id}[^#]*$|))
-      |> expect(Expect.visible(by_text(by_css("h5"), "~/logs/new", [])))
-      |> expect(Expect.visible(by_css("form")))
+      |> assert(page_url(~r|/sources/new\?[^#]*t=#{team.id}[^#]*$|))
+      |> assert(visible(by_text(by_css("h5"), "~/logs/new", [])))
+      |> assert(visible(by_css("form")))
       |> fill(by_label("Source Name", exact: true), "MyApp.Logs")
       |> submit(by_css("form"))
-      |> expect(Fluffy.Page.to_have_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
-      |> expect(Expect.visible(by_css("a[href='#{~p"/dashboard?t=#{team.id}"}']")))
+      |> assert(page_url(~r|/sources/[^/?]+\?[^#]*new=true[^#]*$|))
+      |> assert(visible(by_css("a[href='#{~p"/dashboard?t=#{team.id}"}']")))
     end
 
     test "returns 403 for a user not logged in", %{conn: conn} do
       conn
       |> start_app_session()
       |> visit(~p"/sources/new")
-      |> expect(Fluffy.Page.to_have_url(~p"/auth/login"))
+      |> assert(page_url(~p"/auth/login"))
     end
   end
 
@@ -782,8 +770,8 @@ defmodule LogflareWeb.SourceControllerTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/public/#{s1.public_token}")
-      |> expect(Expect.visible(by_text(by_css("h5 > a"), s1.name, [])))
-      |> expect(Expect.visible(by_text(by_css("span#source-id"), to_string(s1.token), [])))
+      |> assert(visible(by_text(by_css("h5 > a"), s1.name, [])))
+      |> assert(visible(by_text(by_css("span#source-id"), to_string(s1.token), [])))
     end
   end
 
@@ -795,8 +783,8 @@ defmodule LogflareWeb.SourceControllerTest do
       |> login_user(u1)
       |> start_app_session()
       |> visit(~p"/dashboard")
-      |> expect(
-        Expect.visible(
+      |> assert(
+        visible(
           by_css("a[href^='#{~p"/sources/#{s1}"}']")
           |> filter(has_text: s1.name)
           |> first()
@@ -814,8 +802,8 @@ defmodule LogflareWeb.SourceControllerTest do
       |> login_user(u1)
       |> start_app_session()
       |> visit(~p"/dashboard")
-      |> expect(
-        Expect.count(
+      |> assert(
+        count(
           by_css("a[href^='#{~p"/sources/#{s1}"}']") |> filter(has_text: s1.name),
           0
         )

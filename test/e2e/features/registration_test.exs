@@ -13,7 +13,7 @@ defmodule E2e.Features.RegistrationTest do
     test "redirect to dashboard" do
       start_browser_session()
       |> visit(~p"/")
-      |> expect(Fluffy.Page.to_have_url(~r|/dashboard(?:\?t=\d+)?$|))
+      |> assert(page_url(~r|/dashboard(?:\?t=\d+)?$|))
     end
   end
 end

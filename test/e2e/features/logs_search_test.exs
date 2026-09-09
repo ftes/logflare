@@ -66,8 +66,8 @@ defmodule E2e.Features.LogsSearchTest do
       |> visit(
         ~p"/sources/#{source.id}/search?#{%{querystring: "event_message:#{matching_message}"}}"
       )
-      |> expect(Expect.visible(by_text(logs, matching_message, [])))
-      |> expect(Expect.count(by_text(logs, non_matching_message, []), 0))
+      |> assert(visible(by_text(logs, matching_message, [])))
+      |> assert(count(by_text(logs, non_matching_message, []), 0))
     end
 
     test "loads the remaining previous page of search results", %{
@@ -88,10 +88,10 @@ defmodule E2e.Features.LogsSearchTest do
       |> visit(
         ~p"/sources/#{source.id}/search?#{%{querystring: ~s|event_message:~\"^#{pagination_message}-\"|, tailing?: false}}"
       )
-      |> expect(Expect.count(by_css("#logs-list li[data-event-id]"), 100))
+      |> assert(count(by_css("#logs-list li[data-event-id]"), 100))
       |> click(by_css("#load-more-events-top"))
-      |> expect(Expect.count(by_css("#logs-list li[data-event-id]"), 105))
-      |> expect(Expect.disabled(by_css("#load-more-events-top")))
+      |> assert(count(by_css("#logs-list li[data-event-id]"), 105))
+      |> assert(disabled(by_css("#load-more-events-top")))
     end
 
     test "shows a missing field error from the search page", %{source: source} do
@@ -99,8 +99,8 @@ defmodule E2e.Features.LogsSearchTest do
 
       start_logged_in_session()
       |> visit(~p"/sources/#{source.id}/search?#{%{querystring: "s:nonexistent"}}")
-      |> expect(Expect.visible(by_text(message, "nonexistent", []), timeout: 10_000))
-      |> expect(Expect.visible(by_text(message, "does not exist", [])))
+      |> assert(visible(by_text(message, "nonexistent", []), timeout: 10_000))
+      |> assert(visible(by_text(message, "does not exist", [])))
     end
 
     test "cancelling the datepicker resumes tailing", %{source: source} do
@@ -108,11 +108,11 @@ defmodule E2e.Features.LogsSearchTest do
 
       start_logged_in_session()
       |> visit(~p"/sources/#{source.id}/search")
-      |> expect(Expect.visible(pause))
+      |> assert(visible(pause))
       |> click(by_css("#daterangepicker"))
-      |> expect(Expect.count(by_css(".daterangepicker"), 1, timeout: 10_000))
+      |> assert(count(by_css(".daterangepicker"), 1, timeout: 10_000))
       |> click_date_range_cancel()
-      |> expect(Expect.visible(pause))
+      |> assert(visible(pause))
     end
 
     test "applying a preset date range updates the search query", %{source: source} do
@@ -121,7 +121,7 @@ defmodule E2e.Features.LogsSearchTest do
         |> visit(~p"/sources/#{source.id}/search")
         |> click(by_text(by_css("span"), "DateTime", []))
         |> click_date_range_preset("Last 15 Minutes")
-        |> expect(Expect.visible(by_text(by_css(".live-pause"), "Live", [])))
+        |> assert(visible(by_text(by_css(".live-pause"), "Live", [])))
 
       querystring = wait_for_editor_querystring(session, "t:last@15")
 
@@ -132,7 +132,7 @@ defmodule E2e.Features.LogsSearchTest do
       session =
         start_logged_in_session()
         |> visit(~p"/sources/#{source.id}/search")
-        |> expect(Expect.visible(by_css("#source-logs-search-list")))
+        |> assert(visible(by_css("#source-logs-search-list")))
 
       wait_for_editor_querystring(session, "")
 
@@ -158,7 +158,7 @@ defmodule E2e.Features.LogsSearchTest do
       session =
         start_logged_in_session()
         |> visit(~p"/sources/#{source.id}/search")
-        |> expect(Expect.visible(bar_selector |> by_css() |> first(), timeout: 10_000))
+        |> assert(visible(bar_selector |> by_css() |> first(), timeout: 10_000))
 
       %{"x" => x, "y" => y} =
         Fluffy.Playwright.evaluate(
@@ -191,9 +191,9 @@ defmodule E2e.Features.LogsSearchTest do
         end)
 
       session =
-        expect(
+        assert(
           session,
-          Expect.count(by_css(~s|#lql-editor-hook[data-querystring*=".."]|), 1, timeout: 10_000)
+          count(by_css(~s|#lql-editor-hook[data-querystring*=".."]|), 1, timeout: 10_000)
         )
 
       querystring =
@@ -210,7 +210,7 @@ defmodule E2e.Features.LogsSearchTest do
   defp start_logged_in_session do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Fluffy.Page.to_have_url(~r|/dashboard\?t=\d+$|))
+    |> assert(page_url(~r|/dashboard\?t=\d+$|))
   end
 
   defp click_date_range_preset(session, preset) do
@@ -243,7 +243,7 @@ defmodule E2e.Features.LogsSearchTest do
       end
 
     session
-    |> expect(Expect.count(by_css(selector), 1, timeout: timeout_ms))
+    |> assert(count(by_css(selector), 1, timeout: timeout_ms))
     |> then(fn session ->
       Fluffy.Playwright.evaluate(
         session,

@@ -14,7 +14,7 @@ defmodule LogflareWeb.Sources.RulesLiveTest do
     conn
     |> start_app_session()
     |> visit(~p"/sources/#{source}/rules")
-    |> expect(Fluffy.Page.to_have_url(~p"/auth/login"))
+    |> assert(page_url(~p"/auth/login"))
   end
 
   test "returns 403 for source that doesn't belong to user", %{conn: conn} do
@@ -75,12 +75,10 @@ defmodule LogflareWeb.Sources.RulesLiveTest do
       conn
       |> start_app_session()
       |> visit(~p"/sources/#{source}/rules")
-      |> expect(Expect.visible(by_text(by_css(".subhead h5 a"), source.name, [])))
-      |> expect(
-        Expect.visible(by_text(by_css("a[href='/sources/#{source.id}']"), source.name, []))
-      )
-      |> expect(Expect.visible(by_text(by_css("h5"), "Source Routing Rules", [])))
-      |> expect(Expect.visible(by_text(by_css("li.list-group-item"), "No rules yet...", [])))
+      |> assert(visible(by_text(by_css(".subhead h5 a"), source.name, [])))
+      |> assert(visible(by_text(by_css("a[href='/sources/#{source.id}']"), source.name, [])))
+      |> assert(visible(by_text(by_css("h5"), "Source Routing Rules", [])))
+      |> assert(visible(by_text(by_css("li.list-group-item"), "No rules yet...", [])))
     end
 
     test "displays rules after creating them", %{

@@ -39,30 +39,26 @@ defmodule E2e.Features.BackendsTest do
     } do
       backend
       |> visit_backend_edit()
-      |> expect(Expect.visible(by_text(by_css("label"), "Read-Only Cluster URLs (Optional)", [])))
-      |> expect(Expect.visible(by_role(:button, name: "Add read cluster")))
-      |> expect(Expect.visible(by_css("#read-cluster-row-0 input[value='reporting']")))
-      |> expect(
-        Expect.visible(
-          by_css("#read-cluster-row-0 input[value='https://reporting.example.com:8443']")
-        )
+      |> assert(visible(by_text(by_css("label"), "Read-Only Cluster URLs (Optional)", [])))
+      |> assert(visible(by_role(:button, name: "Add read cluster")))
+      |> assert(visible(by_css("#read-cluster-row-0 input[value='reporting']")))
+      |> assert(
+        visible(by_css("#read-cluster-row-0 input[value='https://reporting.example.com:8443']"))
       )
-      |> expect(
-        Expect.visible(
-          by_css("input[name='backend[config][default_read_cluster]'][value='reporting']")
-        )
+      |> assert(
+        visible(by_css("input[name='backend[config][default_read_cluster]'][value='reporting']"))
       )
     end
 
     test "edit can add and remove read cluster rows", %{backend: backend} do
       backend
       |> visit_backend_edit()
-      |> expect(Expect.count(by_css("#read-cluster-row-1"), 0))
+      |> assert(count(by_css("#read-cluster-row-1"), 0))
       |> click(by_role(:button, name: "Add read cluster"))
-      |> expect(Expect.visible(by_css("#read-cluster-row-1")))
+      |> assert(visible(by_css("#read-cluster-row-1")))
       |> click(by_css("#read-cluster-row-1 button[phx-click='remove_row']"))
-      |> expect(Expect.count(by_css("#read-cluster-row-1"), 0))
-      |> expect(Expect.visible(by_css("#read-cluster-row-0 input[value='reporting']")))
+      |> assert(count(by_css("#read-cluster-row-1"), 0))
+      |> assert(visible(by_css("#read-cluster-row-0 input[value='reporting']")))
     end
 
     test "adding a row preserves unsaved cluster and default edits", %{backend: backend} do
@@ -76,17 +72,17 @@ defmodule E2e.Features.BackendsTest do
 
       backend
       |> visit_backend_edit()
-      |> expect(Expect.visible(by_css("[data-phx-main].phx-connected")))
+      |> assert(visible(by_css("[data-phx-main].phx-connected")))
       |> fill(label, "reporting-edited")
       |> fill(url, "https://reporting-edited.example.com:8443")
       |> fill(default_cluster, "reporting-edited")
       |> click(by_role(:button, name: "Add read cluster"))
-      |> expect(Expect.visible(by_css("#read-cluster-row-1")))
-      |> expect(Expect.value(label, "reporting-edited"))
-      |> expect(Expect.value(url, "https://reporting-edited.example.com:8443"))
-      |> expect(Expect.value(default_cluster, "reporting-edited"))
+      |> assert(visible(by_css("#read-cluster-row-1")))
+      |> assert(value(label, "reporting-edited"))
+      |> assert(value(url, "https://reporting-edited.example.com:8443"))
+      |> assert(value(default_cluster, "reporting-edited"))
       |> click(by_role(:button, name: "Save changes"))
-      |> expect(Expect.visible(by_text("Successfully updated backend")))
+      |> assert(visible(by_text("Successfully updated backend")))
 
       config = Logflare.Backends.get_backend(backend.id).config
 
@@ -154,7 +150,7 @@ defmodule E2e.Features.BackendsTest do
         end)
 
       assert sent_sync_frame_count(session) == 1
-      expect(session, Expect.value(url, "https://reader-b.example.com:8443"))
+      assert(session, value(url, "https://reader-b.example.com:8443"))
     end
   end
 
@@ -190,18 +186,18 @@ defmodule E2e.Features.BackendsTest do
       session = visit_backend_edit(backend)
 
       session
-      |> expect(Expect.value(read_cluster_label(0), "alpha"))
-      |> expect(Expect.value(read_cluster_label(1), "beta"))
-      |> expect(Expect.value(read_cluster_label(2), "gamma"))
+      |> assert(value(read_cluster_label(0), "alpha"))
+      |> assert(value(read_cluster_label(1), "beta"))
+      |> assert(value(read_cluster_label(2), "gamma"))
 
       session = click(session, by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
 
       session
-      |> expect(Expect.count(by_css("#read-cluster-row-0"), 0))
-      |> expect(Expect.visible(by_css("#read-cluster-row-1 input[value='beta']")))
-      |> expect(Expect.visible(by_css("#read-cluster-row-2 input[value='gamma']")))
-      |> expect(Expect.value(read_cluster_label(1), "beta"))
-      |> expect(Expect.value(read_cluster_label(2), "gamma"))
+      |> assert(count(by_css("#read-cluster-row-0"), 0))
+      |> assert(visible(by_css("#read-cluster-row-1 input[value='beta']")))
+      |> assert(visible(by_css("#read-cluster-row-2 input[value='gamma']")))
+      |> assert(value(read_cluster_label(1), "beta"))
+      |> assert(value(read_cluster_label(2), "gamma"))
     end
 
     test "removing a row saves the remaining clusters", %{backend: backend} do
@@ -209,7 +205,7 @@ defmodule E2e.Features.BackendsTest do
       |> visit_backend_edit()
       |> click(by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
       |> click(by_role(:button, name: "Save changes"))
-      |> expect(Expect.visible(by_text("Successfully updated backend")))
+      |> assert(visible(by_text("Successfully updated backend")))
 
       assert Logflare.Backends.get_backend(backend.id).config.read_only_urls == %{
                "beta" => "https://b.example.com:8443",
@@ -234,12 +230,12 @@ defmodule E2e.Features.BackendsTest do
       |> fill(url, "https://gamma-edited.example.com:8443")
       |> fill(default_cluster, "gamma-edited")
       |> click(by_css("#read-cluster-row-0 button[phx-click='remove_row']"))
-      |> expect(Expect.count(by_css("#read-cluster-row-0"), 0))
-      |> expect(Expect.value(label, "gamma-edited"))
-      |> expect(Expect.value(url, "https://gamma-edited.example.com:8443"))
-      |> expect(Expect.value(default_cluster, "gamma-edited"))
+      |> assert(count(by_css("#read-cluster-row-0"), 0))
+      |> assert(value(label, "gamma-edited"))
+      |> assert(value(url, "https://gamma-edited.example.com:8443"))
+      |> assert(value(default_cluster, "gamma-edited"))
       |> click(by_role(:button, name: "Save changes"))
-      |> expect(Expect.visible(by_text("Successfully updated backend")))
+      |> assert(visible(by_text("Successfully updated backend")))
 
       config = Logflare.Backends.get_backend(backend.id).config
 
@@ -255,7 +251,7 @@ defmodule E2e.Features.BackendsTest do
   defp visit_backend_edit(backend) do
     start_browser_session()
     |> visit(~p"/auth/login/single_tenant")
-    |> expect(Fluffy.Page.to_have_url(~r|/dashboard\?t=\d+$|))
+    |> assert(page_url(~r|/dashboard\?t=\d+$|))
     |> visit(~p"/backends/#{backend.id}/edit")
   end
 
