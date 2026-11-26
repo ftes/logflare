@@ -84,16 +84,13 @@ if config_env() == :test and Env.get_boolean("E2E") do
   # at runtime.
   config :logflare, LogflareWeb.Endpoint, server: true
 
-  config :phoenix_test,
-    playwright: [
-      browser: :chromium,
-      executable_path: System.get_env("PLAYWRIGHT_CHROMIUM_PATH", ""),
-      trace: Env.get_boolean("PW_TRACE"),
-      screenshot: Env.get_boolean("PW_SCREENSHOT"),
-      js_logger: if(Env.get_boolean("PW_JS_LOGGER"), do: :default, else: false),
-      timeout: :timer.seconds(40),
-      browser_launch_timeout: 10_000
-    ]
+  config :playwright, :test,
+    launch_options: [executable_path: System.get_env("PLAYWRIGHT_CHROMIUM_PATH"), timeout: 10_000],
+    trace: if(Env.get_boolean("PW_TRACE"), do: :on, else: :off),
+    screenshot: if(Env.get_boolean("PW_SCREENSHOT"), do: :on, else: :off),
+    action_timeout: :timer.seconds(40),
+    navigation_timeout: :timer.seconds(40),
+    expect: [timeout: :timer.seconds(40)]
 end
 
 filter_nil_kv_pairs = fn pairs when is_list(pairs) ->
@@ -165,7 +162,8 @@ config :logflare,
          metadata: logflare_metadata,
          health: logflare_health,
          http_connection_pools: http_connection_pools,
-         bq_write_api_pool_size: Env.get_integer("LOGFLARE_BQ_WRITE_API_POOL_SIZE", 10)
+         bq_write_api_pool_size: Env.get_integer("LOGFLARE_BQ_WRITE_API_POOL_SIZE", 10),
+         grpc_max_body_size: Env.get_integer("LOGFLARE_GRPC_MAX_BODY_SIZE", 12_000_000)
        ]
        |> filter_nil_kv_pairs.()
 
@@ -810,8 +808,7 @@ spool_max_batch_bytes_override =
 # when SPOOL_BUFFER is :wal. Falls back to a tmp dir so a plain
 # `mix phx.server` still boots with spool mode on, but that fallback is
 # not durable across a real restart — set this explicitly wherever the
-# WAL is meant to survive one (see cloudbuild/gce-startup.sh's
-# prepare_wal_dir for how the dev/staging producer instances provide it).
+# WAL is meant to survive one.
 spool_overrides =
   spool_mode_override ++
     spool_provider_override ++
